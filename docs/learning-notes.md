@@ -10,5 +10,13 @@ A brushed DC motor converts electrical energy into rotational mechanical energy.
 ### Why does our robot need it?
 SEEKR uses two independently driven wheels for differential-drive movement. Geared DC motors reduce output RPM and increase available wheel torque, allowing controlled movement and sufficient driving force.
 
-### What I still don't understand
-Motor drivers and H-bridges, PWM speed control, encoders and feedback, power supply sizing, and practical motor testing.
+## 2. Motor Drivers & H-Bridges
+
+### What is it?
+A motor driver is an electronic circuit that uses low-power control signals to switch electrical power from a separate supply to a motor. An H-bridge is a four-switch arrangement that reverses the polarity across a DC motor to control its direction.
+
+### Why does our robot need it?
+The ESP32 GPIO pins cannot directly supply the voltage and current required by our geared DC motors. SEEKR needs two independently controlled H-bridge channels to drive its left and right wheels, allowing forward motion, reverse motion, and differential steering.
+
+### What I still need to understand
+PWM speed control, encoders and motor feedback, PID control, practical power-supply design, safe wiring, and motor-driver configuration.
