@@ -18,5 +18,13 @@ A motor driver is an electronic circuit that uses low-power control signals to s
 ### Why does our robot need it?
 The ESP32 GPIO pins cannot directly supply the voltage and current required by our geared DC motors. SEEKR needs two independently controlled H-bridge channels to drive its left and right wheels, allowing forward motion, reverse motion, and differential steering.
 
+## 3. PWM Speed Control
+
+### What is it?
+Pulse Width Modulation (PWM) controls the average electrical drive by rapidly switching a signal between HIGH and LOW. Duty cycle is the percentage of each period spent HIGH, while frequency is the number of PWM cycles per second.
+
+### Why does our robot need it?
+SEEKR uses PWM from the ESP32 to command the motor driver and control the speed of each geared DC motor. Different PWM duty cycles allow the left and right wheels to run at different speeds for differential-drive movement and steering.
+
 ### What I still need to understand
-PWM speed control, encoders and motor feedback, PID control, practical power-supply design, safe wiring, and motor-driver configuration.
+Encoders and motor feedback, closed-loop control, PID control, motor calibration, and practical ESP32 motor-control programming.
