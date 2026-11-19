@@ -26,5 +26,22 @@ Pulse Width Modulation (PWM) controls the average electrical drive by rapidly sw
 ### Why does our robot need it?
 SEEKR uses PWM from the ESP32 to command the motor driver and control the speed of each geared DC motor. Different PWM duty cycles allow the left and right wheels to run at different speeds for differential-drive movement and steering.
 
+## 4. Wheel Encoders
+
+### What is it?
+A rotary encoder is a sensor that generates electrical signals as a motor shaft rotates. By counting these signals, the ESP32 can measure rotational displacement and calculate rotational speed. A quadrature encoder uses channels A and B, offset by 90 electrical degrees, so the direction of rotation can also be determined.
+
+Important relationships:
+
+- Wheel counts per revolution depend on the encoder resolution and the gearbox ratio.
+- Wheel revolutions = encoder counts / counts per wheel revolution.
+- Distance travelled = wheel revolutions × wheel circumference.
+- Wheel RPM can be calculated from the number of wheel revolutions measured over a known time interval.
+
+### Why does our robot need it?
+SEEKR needs an encoder on each drive motor so the left and right wheel movement can be measured independently. Equal PWM commands do not guarantee equal wheel speeds, so encoder feedback allows the robot to detect and later correct these differences.
+
+Encoders will support accurate straight-line driving, controlled turning, closed-loop speed control, and wheel odometry.
+
 ### What I still need to understand
-Encoders and motor feedback, closed-loop control, PID control, motor calibration, and practical ESP32 motor-control programming.
+Practical encoder wiring, ESP32 interrupts and pulse counters, motor calibration, PID control, differential-drive odometry, and reducing errors caused by wheel slip, electrical noise, and missed encoder counts.
