@@ -79,5 +79,127 @@ Independent feedback loops for the left and right wheels improve straight-line d
 
 Wheel slip and inaccurate wheel dimensions can still affect the robot's actual trajectory even if wheel-speed control is accurate.
 
-### What I still need to understand
-PID control and tuning, steady-state error, integral windup, controller stability, practical ESP32 implementation, differential-drive kinematics, wheel odometry, and motor calibration.
+## 7. PID Motor Speed Control
+
+### What is PID control?
+PID is a closed-loop control method that calculates motor corrections using three components:
+
+- **P (Proportional):** responds to the current error.
+- **I (Integral):** responds to accumulated error over time.
+- **D (Derivative):** responds to how quickly the measured value is changing.
+
+The wheel-speed error is:
+
+$$
+e(t) = \mathrm{RPM}_{\text{target}} - \mathrm{RPM}_{\text{measured}}
+$$
+
+A practical motor command can be written as:
+
+$$
+\mathrm{PWM} = \mathrm{PWM}_{\text{base}} + P + I + D
+$$
+
+where:
+
+$$
+P = K_p e(t)
+$$
+
+$$
+I = K_i \int e(t)\,dt
+$$
+
+$$
+D = -K_d \frac{d\,\mathrm{RPM}_{\text{measured}}}{dt}
+$$
+
+The ESP32 repeatedly:
+
+1. Measures wheel speed using the encoder.
+2. Calculates the speed error.
+3. Calculates the P, I, and D terms.
+4. Updates the PWM command.
+5. Repeats the process at a regular control interval.
+
+The PWM output must also be limited to the valid range supported by the motor-control system.
+
+### Why does our robot need it?
+SEEKR uses two independently driven DC motors. Even if both motors receive the same PWM command, they may not rotate at exactly the same speed because of differences in:
+
+- motor characteristics
+- friction
+- mechanical load
+- battery voltage
+- wheel contact with the floor
+
+SEEKR can use a separate PI/PID controller for each wheel so that each motor follows its requested wheel-speed setpoint more accurately.
+
+This improves:
+
+- straight-line driving
+- repeatable turning
+- wheel-speed consistency
+- resistance to changing loads
+
+For SEEKR, **PI control may be sufficient** if the derivative term does not provide a useful improvement, since derivative control can be sensitive to noisy encoder measurements.
+
+### Important PID behavior
+
+#### Proportional gain — Kp
+Increasing \(K_p\) makes the controller respond more strongly to the current error.
+
+Too little \(K_p\):
+- slow response
+- larger remaining error
+
+Too much \(K_p\):
+- overshoot
+- oscillation
+- possible instability
+
+#### Integral gain — Ki
+The integral term accumulates error over time and helps eliminate persistent steady-state error.
+
+Too much \(K_i\) can cause:
+
+- overshoot
+- oscillation
+- integral windup
+
+Integral windup happens when the controller continues accumulating error even though the PWM output has already reached its maximum or minimum limit.
+
+#### Derivative gain — Kd
+The derivative term reacts to how quickly the measured wheel speed is changing.
+
+It can help reduce:
+
+- overshoot
+- rapid oscillations
+
+However, derivative control is sensitive to measurement noise, which is why some motor-speed controllers use only PI control.
+
+### Controller flow
+
+The basic control loop for each SEEKR wheel is:
+
+```text
+Target RPM
+    ↓
+Compare with measured RPM
+    ↓
+Calculate error
+    ↓
+PI/PID controller
+    ↓
+PWM command
+    ↓
+Motor driver
+    ↓
+DC motor
+    ↓
+Encoder
+    ↓
+Measured RPM
+    └──────────── feedback
+
