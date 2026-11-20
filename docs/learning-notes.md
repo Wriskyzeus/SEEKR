@@ -43,5 +43,19 @@ SEEKR needs an encoder on each drive motor so the left and right wheel movement 
 
 Encoders will support accurate straight-line driving, controlled turning, closed-loop speed control, and wheel odometry.
 
+## 5. ESP32 Encoder Reading
+
+### How does the ESP32 read an encoder?
+Quadrature encoders generate digital HIGH/LOW signals on channels A and B. The ESP32 can detect these transitions using GPIO interrupts or its dedicated PCNT pulse-counting hardware. The phase relationship between channels A and B allows the ESP32 to determine rotation direction.
+
+Different counting methods such as x1, x2, and x4 use different numbers of signal edges, which changes the effective encoder resolution.
+
+The ESP32 can periodically read the accumulated encoder counts and use the change in counts over a known time interval to calculate wheel speed.
+
+### Why does our robot need this?
+SEEKR needs reliable and independent measurements of its left and right wheel motion. Since equal PWM commands do not guarantee equal wheel speeds, encoder measurements provide the feedback needed for accurate straight-line driving and controlled turning.
+
+This also provides the foundation for closed-loop motor control, PID control, and wheel odometry.
+
 ### What I still need to understand
-Practical encoder wiring, ESP32 interrupts and pulse counters, motor calibration, PID control, differential-drive odometry, and reducing errors caused by wheel slip, electrical noise, and missed encoder counts.
+Practical encoder wiring, configuring PCNT on the selected ESP32 board, testing and calibrating encoder measurements, closed-loop speed control, PID control, and differential-drive odometry.
