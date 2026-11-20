@@ -202,4 +202,110 @@ Encoder
     ↓
 Measured RPM
     └──────────── feedback
+```
+
+## 8. Differential-Drive Kinematics
+
+### What is differential-drive kinematics?
+Differential-drive kinematics describes how the motion of two independently driven wheels determines the robot's linear and angular motion.
+
+By changing the relative speeds of the left and right wheels, SEEKR can drive straight, follow curved paths, or rotate in place.
+
+### Why does SEEKR need it?
+SEEKR's motion controller needs to convert a desired forward velocity and turning rate into individual left and right wheel-speed setpoints.
+
+The ESP32 can use inverse differential-drive kinematics to calculate the required wheel speeds, convert those speeds into RPM, and send the resulting setpoints to the separate left and right PI/PID motor controllers.
+
+### Important equations and concepts
+
+Wheel linear speed is related to wheel angular speed by:
+
+$$
+v_{\text{wheel}} = r\omega_{\text{wheel}}
+$$
+
+The robot's forward linear velocity is:
+
+$$
+v = \frac{v_L + v_R}{2}
+$$
+
+The robot's angular velocity is:
+
+$$
+\omega = \frac{v_R - v_L}{L}
+$$
+
+where:
+
+- $v_L$ = left wheel linear velocity
+- $v_R$ = right wheel linear velocity
+- $L$ = effective track width between the wheels
+- $r$ = wheel radius
+
+To convert desired robot motion into wheel-speed commands:
+
+$$
+v_L = v - \frac{\omega L}{2}
+$$
+
+$$
+v_R = v + \frac{\omega L}{2}
+$$
+
+Wheel linear velocity can be converted to RPM using:
+
+$$
+\mathrm{RPM} =
+\frac{60v_{\text{wheel}}}{2\pi r}
+$$
+
+For curved motion, the instantaneous turning radius is:
+
+$$
+R = \frac{v}{\omega}
+$$
+
+for $\omega \neq 0$.
+
+### Movement rules
+
+- Equal positive wheel speeds → straight forward motion.
+- Equal negative wheel speeds → straight reverse motion.
+- Unequal wheel speeds → curved motion.
+- Right wheel faster than left → robot turns left.
+- Left wheel faster than right → robot turns right.
+- Equal and opposite wheel speeds → rotation in place.
+- Larger track width produces a smaller angular velocity for the same difference in wheel speeds.
+
+### Control flow
+
+```mermaid
+flowchart TD
+    A["Desired robot motion<br/>(v, ω)"]
+    B["Differential-drive<br/>inverse kinematics"]
+    C["Left wheel<br/>speed setpoint"]
+    D["Right wheel<br/>speed setpoint"]
+    E["Left PI/PID<br/>controller"]
+    F["Right PI/PID<br/>controller"]
+    G["Left motor PWM"]
+    H["Right motor PWM"]
+    I["Left motor"]
+    J["Right motor"]
+
+    A --> B
+    B --> C
+    B --> D
+    C --> E
+    D --> F
+    E --> G
+    F --> H
+    G --> I
+    H --> J
+```
+
+
+
+
+
 
