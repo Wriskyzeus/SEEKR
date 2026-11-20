@@ -423,7 +423,65 @@ These errors accumulate because every new pose estimate depends on the previous 
 - sending pose estimates to the Raspberry Pi
 - IMUs and sensor fusion
 
+## 10. IMU Fundamentals
 
+### What is an IMU?
+An Inertial Measurement Unit (IMU) typically contains:
+
+- **Accelerometer:** measures specific force along the x, y, and z axes.
+- **Gyroscope:** measures angular velocity around the x, y, and z axes.
+
+For a flat differential-drive robot, **yaw** is the most important rotation because it represents the robot turning left or right.
+
+### Why could SEEKR use one?
+An IMU can measure chassis rotation independently of the wheel encoders.
+
+This can help SEEKR:
+
+- improve heading estimation
+- detect disagreement between wheel motion and actual chassis rotation
+- identify possible wheel slip
+- improve future localization
+
+An IMU is **optional for SEEKR V1** because encoder odometry can work without one.
+
+### Important concepts
+
+A gyroscope can estimate heading changes by integrating angular velocity:
+
+$$
+\theta_{\text{new}}
+=
+\theta_{\text{old}}
++
+(\omega_z - b_z)\Delta t
+$$
+
+where:
+
+- $\omega_z$ = measured yaw angular velocity
+- $b_z$ = gyro bias
+- $\Delta t$ = measurement interval
+
+Gyroscope measurements accumulate drift over time because even small bias errors are integrated continuously.
+
+Accelerometers are noisy and also measure gravity-related specific force. Double-integrating acceleration to estimate position usually produces rapidly growing error.
+
+Basic sensor fusion can combine encoder and gyro measurements to improve heading estimation, although it does not completely eliminate drift.
+
+### Main sources of error
+- gyro bias
+- accumulated heading drift
+- accelerometer noise
+- sensor mounting orientation
+- calibration error
+- sampling-time error
+
+### What I still need to understand
+- practical IMU wiring and calibration
+- reading IMU measurements with the ESP32
+- comparing gyro and encoder heading estimates
+- sensor fusion if SEEKR later requires it
 
 
 
