@@ -57,5 +57,27 @@ SEEKR needs reliable and independent measurements of its left and right wheel mo
 
 This also provides the foundation for closed-loop motor control, PID control, and wheel odometry.
 
+## 6. Closed-Loop Motor Speed Control
+
+### What is it?
+Closed-loop motor control uses encoder feedback to adjust PWM so that a motor's measured speed follows its desired speed.
+
+The ESP32 repeatedly performs:
+
+Measured RPM → Calculate error → Adjust PWM → Repeat
+
+The speed error is:
+
+e = RPM_target - RPM_measured
+
+A simple proportional controller can adjust PWM based on this error.
+
+### Why does our robot need it?
+SEEKR uses two independently driven DC motors. Closed-loop control allows the ESP32 to compensate for differences caused by load, friction, battery voltage, and motor characteristics.
+
+Independent feedback loops for the left and right wheels improve straight-line driving, controlled turning, and movement repeatability.
+
+Wheel slip and inaccurate wheel dimensions can still affect the robot's actual trajectory even if wheel-speed control is accurate.
+
 ### What I still need to understand
-Practical encoder wiring, configuring PCNT on the selected ESP32 board, testing and calibrating encoder measurements, closed-loop speed control, PID control, and differential-drive odometry.
+PID control and tuning, steady-state error, integral windup, controller stability, practical ESP32 implementation, differential-drive kinematics, wheel odometry, and motor calibration.
