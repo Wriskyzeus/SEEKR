@@ -303,7 +303,125 @@ flowchart TD
     G --> I
     H --> J
 ```
+## 9. Wheel Odometry
 
+### What is wheel odometry?
+Wheel odometry estimates how SEEKR's position and orientation change using measurements from its left and right wheel encoders.
+
+The robot's pose is represented as:
+
+$$
+(x,\ y,\ \theta)
+$$
+
+where:
+
+- $x$ = horizontal position
+- $y$ = vertical position
+- $\theta$ = heading/orientation
+
+Odometry starts from a known or assumed pose and repeatedly updates that estimate as the wheels move.
+
+### Why does SEEKR need it?
+Wheel odometry allows SEEKR to estimate how far it has moved and how its orientation has changed inside the arena.
+
+It can help SEEKR:
+
+- estimate relative position
+- estimate heading
+- track approximately where it has already travelled
+- support future navigation and search logic
+- provide movement information to the Raspberry Pi
+
+### Important equations and concepts
+
+Encoder counts can be converted into wheel travel:
+
+$$
+\Delta s_i =
+\frac{\Delta N_i}{\mathrm{CPR}_i}
+\cdot 2\pi r_i
+$$
+
+where:
+
+- $\Delta N_i$ = change in encoder counts
+- $\mathrm{CPR}_i$ = counts per wheel revolution
+- $r_i$ = wheel radius
+
+Average forward travel is:
+
+$$
+\Delta s =
+\frac{\Delta s_L + \Delta s_R}{2}
+$$
+
+Change in heading is approximately:
+
+$$
+\Delta \theta =
+\frac{\Delta s_R - \Delta s_L}{L}
+$$
+
+where $L$ is the effective track width between the wheels.
+
+Using the robot's midpoint heading:
+
+$$
+\theta_{\mathrm{mid}}
+=
+\theta_{\mathrm{old}}
++
+\frac{\Delta \theta}{2}
+$$
+
+the pose can be updated approximately as:
+
+$$
+x_{\mathrm{new}}
+=
+x_{\mathrm{old}}
++
+\Delta s\cos(\theta_{\mathrm{mid}})
+$$
+
+$$
+y_{\mathrm{new}}
+=
+y_{\mathrm{old}}
++
+\Delta s\sin(\theta_{\mathrm{mid}})
+$$
+
+$$
+\theta_{\mathrm{new}}
+=
+\theta_{\mathrm{old}}
++
+\Delta\theta
+$$
+
+### Kinematics vs odometry
+Differential-drive kinematics describes how wheel velocities produce robot linear and angular velocity.
+
+Wheel odometry uses measured wheel movement over time to estimate the robot's changing pose.
+
+### Main sources of error
+- wheel slip
+- incorrect wheel diameter
+- unequal effective wheel radii
+- incorrect effective track width
+- missed or noisy encoder counts
+- incorrect initial pose
+
+These errors accumulate because every new pose estimate depends on the previous estimate.
+
+### What I still need to understand
+- implementing odometry calculations in code
+- calibrating wheel radius and effective track width
+- testing straight-line and turning accuracy
+- sending pose estimates to the Raspberry Pi
+- IMUs and sensor fusion
 
 
 
