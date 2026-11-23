@@ -484,4 +484,106 @@ Basic sensor fusion can combine encoder and gyro measurements to improve heading
 - sensor fusion if SEEKR later requires it
 
 
+## 11. Robot Power System
 
+### What is SEEKR's power system?
+SEEKR's power system consists of the battery, voltage regulators, motor driver, wiring, connectors, switches, and protection devices that safely distribute electrical power to the motors, Raspberry Pi, ESP32, camera, and sensors.
+
+### Why does power-system design matter?
+Different components require different voltages and currents.
+
+The motors can draw large startup or stall currents, while the Raspberry Pi and ESP32 require stable power. Poor power-system design can cause voltage drops, overheating, electrical noise, controller resets, or damaged components.
+
+### Important concepts
+
+Electrical power is:
+
+$$
+P = VI
+$$
+
+Energy is:
+
+$$
+E = Pt
+$$
+
+Approximate battery energy is:
+
+$$
+E_{\text{battery}} \approx V \times \mathrm{Ah}
+$$
+
+in watt-hours when voltage is in volts and capacity is in amp-hours.
+
+Approximate runtime can be estimated using:
+
+$$
+t \approx \frac{E_{\text{usable}}}{P_{\text{average}}}
+$$
+
+Voltage drop across wiring is:
+
+$$
+V_{\text{drop}} = IR
+$$
+
+Power lost as heat in resistance is:
+
+$$
+P_{\text{heat}} = I^2R
+$$
+
+Other important concepts:
+
+- **Series battery cells:** voltage adds while amp-hour capacity remains approximately the same.
+- **Parallel battery cells:** amp-hour capacity adds while voltage remains approximately the same.
+- **Buck converter:** efficiently reduces a higher DC voltage to a lower DC voltage.
+- **Common ground:** connected electronics share a common voltage reference where required.
+- **Stall current:** must be considered when selecting the motor driver, battery, wiring, and protection.
+- **Protected battery pack:** SEEKR should use a commercially protected rechargeable battery pack rather than a custom pack made from loose lithium cells.
+
+### Basic power architecture
+
+```mermaid
+flowchart TD
+    Battery["Protected Battery Pack"]
+    Fuse["Main Fuse"]
+    Switch["Main Power Switch"]
+
+    MotorBranch["Motor Power Branch"]
+    LogicBranch["Logic Power Branch"]
+
+    Driver["Motor Driver"]
+    Motors["Left & Right Motors"]
+
+    Regulator["Voltage Regulator"]
+    Pi["Raspberry Pi 5"]
+    ESP["ESP32"]
+    Sensors["Camera & Sensors"]
+
+    Battery --> Fuse
+    Fuse --> Switch
+
+    Switch --> MotorBranch
+    Switch --> LogicBranch
+
+    MotorBranch --> Driver
+    Driver --> Motors
+
+    LogicBranch --> Regulator
+    Regulator --> Pi
+    Regulator --> ESP
+    Regulator --> Sensors
+```
+
+The final architecture will depend on the actual battery voltage and the voltage/current requirements of the selected components.
+
+### What I still need to understand
+- selecting SEEKR's actual motors and determining running and stall current
+- selecting the motor driver
+- selecting the battery
+- sizing voltage regulators
+- selecting fuses
+- selecting appropriate wire and connectors
+- assembling and testing the real power system safely
