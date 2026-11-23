@@ -629,7 +629,7 @@ Linux does not guarantee perfectly consistent execution timing because many proc
 
 The ESP32 is therefore better suited for the timing-sensitive control loops that directly operate the robot's hardware.
 
-### Important concepts
+### Important Concepts
 
 - **Single-board computer (SBC):** A complete computer built onto one circuit board.
 - **Operating system:** Software that manages the computer's hardware and running applications.
@@ -637,13 +637,32 @@ The ESP32 is therefore better suited for the timing-sensitive control loops that
 - **Timing jitter:** Variation in when a task actually executes.
 - **GPIO:** General-purpose digital input/output pins. Raspberry Pi GPIO operates using 3.3 V logic.
 - **USB:** A standard interface that can connect compatible devices and may also be used for serial communication.
-- **UART:** A simple serial communication interface using transmit and receive signals.
-- **Serial communication:** SEEKR's Raspberry Pi and ESP32 will exchange commands and telemetry using either USB serial or direct UART, depending on the final hardware configuration.
+- **UART:** A serial communication interface using transmit and receive signals.
 - **Wi-Fi / HTTP:** Allows a user's browser to communicate with SEEKR's web interface.
 - **Camera interface:** Allows the Raspberry Pi to receive image data from the robot's camera.
 - **SSH:** Allows remote terminal access to the Raspberry Pi over a network.
 - **systemd:** Linux service manager that can automatically start SEEKR software when the Pi boots.
 - **Watchdog / timeout:** A safety mechanism that detects lost communication or stalled software and can force the robot into a safe state.
+
+### Communication Concepts Introduced
+
+During this step, the basic Raspberry Pi–ESP32 communication model was also introduced.
+
+- **Serial communication:** SEEKR's Raspberry Pi and ESP32 exchange a stream of bytes using either USB serial or direct UART, depending on the final hardware configuration.
+- **TX and RX:** TX transmits data and RX receives data.
+- **Baud rate:** Defines the communication rate. Both devices must use compatible communication settings.
+- **8N1:** A common UART configuration using 8 data bits, no parity bit, and 1 stop bit.
+- **Common ground:** Direct UART communication requires the two controllers to share a voltage reference unless isolation is used.
+- **Byte stream:** Serial communication does not automatically provide complete application-level messages. The software must determine where messages begin and end.
+- **Message framing:** A rule used to separate individual messages. A simple example is terminating each message with a newline character.
+- **Commands:** Messages from the Raspberry Pi requesting robot actions, such as movement or stopping.
+- **Telemetry:** Information sent from the ESP32 to the Raspberry Pi, such as wheel speeds, encoder information, odometry, boundary states, and faults.
+- **Different update rates:** Motor-control loops run much faster than high-level commands and telemetry. These tasks do not need to operate at the same frequency.
+- **Heartbeat:** A periodic message indicating that communication is still active.
+- **Communication timeout:** If valid control communication disappears for too long, the ESP32 should place the robot into a safe stopped state.
+- **Startup handshake:** The Raspberry Pi and ESP32 should confirm readiness before normal autonomous operation begins.
+
+These concepts establish the basic communication architecture. Reliable parsing, acknowledgements, corruption detection, recovery, reconnection, and protocol design are covered in Step 16.
 
 ### High-Level Robot State Machine
 
@@ -690,16 +709,17 @@ SEEKR software starts
     ↓
 Camera and serial communication initialize
     ↓
-Hardware/software readiness checks
+Pi and ESP32 perform readiness checks
     ↓
 IDLE
 ```
 
 ### What I still need to understand
+
 - setting up the Raspberry Pi operating system
 - connecting to the Pi using SSH
 - working with the camera on the Raspberry Pi
-- implementing Raspberry Pi ↔ ESP32 serial communication
+- designing and implementing a reliable Pi–ESP32 communication protocol
 - integrating perception and search software
 - implementing the high-level state machine
 - configuring automatic startup
