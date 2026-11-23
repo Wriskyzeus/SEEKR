@@ -587,3 +587,120 @@ The final architecture will depend on the actual battery voltage and the voltage
 - selecting fuses
 - selecting appropriate wire and connectors
 - assembling and testing the real power system safely
+
+## 12. Raspberry Pi Fundamentals
+
+### What is the Raspberry Pi's role in SEEKR?
+The Raspberry Pi 5 is SEEKR's high-level computer.
+
+It runs Linux and is responsible for:
+
+- hosting the web interface
+- receiving the user's target selection
+- acquiring camera data
+- running object detection and perception
+- running the search algorithm
+- maintaining the high-level robot state machine
+- deciding the desired robot motion
+- communicating with the ESP32
+- receiving and logging robot telemetry
+
+### Why use both a Raspberry Pi and ESP32?
+
+The two controllers have different jobs.
+
+**Raspberry Pi 5:**
+- computationally demanding tasks
+- computer vision
+- networking
+- web interface
+- search and decision-making
+- high-level robot behavior
+
+**ESP32:**
+- motor control
+- PWM generation
+- encoder acquisition
+- PI/PID control loops
+- boundary-sensor monitoring
+- immediate low-level safety behavior
+
+Linux does not guarantee perfectly consistent execution timing because many processes share the processor. This can create **timing jitter**.
+
+The ESP32 is therefore better suited for the timing-sensitive control loops that directly operate the robot's hardware.
+
+### Important concepts
+
+- **Single-board computer (SBC):** A complete computer built onto one circuit board.
+- **Operating system:** Software that manages the computer's hardware and running applications.
+- **Linux process:** A currently running program.
+- **Timing jitter:** Variation in when a task actually executes.
+- **GPIO:** General-purpose digital input/output pins. Raspberry Pi GPIO operates using 3.3 V logic.
+- **USB:** A standard interface that can connect compatible devices and may also be used for serial communication.
+- **UART:** A simple serial communication interface using transmit and receive signals.
+- **Serial communication:** SEEKR's Raspberry Pi and ESP32 will exchange commands and telemetry using either USB serial or direct UART, depending on the final hardware configuration.
+- **Wi-Fi / HTTP:** Allows a user's browser to communicate with SEEKR's web interface.
+- **Camera interface:** Allows the Raspberry Pi to receive image data from the robot's camera.
+- **SSH:** Allows remote terminal access to the Raspberry Pi over a network.
+- **systemd:** Linux service manager that can automatically start SEEKR software when the Pi boots.
+- **Watchdog / timeout:** A safety mechanism that detects lost communication or stalled software and can force the robot into a safe state.
+
+### High-Level Robot State Machine
+
+SEEKR's Raspberry Pi will maintain states similar to:
+
+```mermaid
+flowchart LR
+    IDLE["IDLE"] --> SEARCH["SEARCH"]
+    SEARCH --> VERIFY["VERIFY / ALIGN"]
+    VERIFY --> APPROACH["APPROACH"]
+    APPROACH --> FOUND["FOUND"]
+
+    SEARCH --> FAULT["FAULT / STOP"]
+    VERIFY --> FAULT
+    APPROACH --> FAULT
+```
+
+The exact implementation may change during development.
+
+### SEEKR's High-Level Data Flow
+
+1. The user selects a target through the web interface.
+2. The Raspberry Pi receives the target selection.
+3. The camera provides image frames to the Raspberry Pi.
+4. The perception system evaluates the images for the selected object.
+5. The search and behavior logic determines the desired robot movement.
+6. The Raspberry Pi sends a motion command to the ESP32.
+7. The ESP32 controls the motors and monitors encoders and boundary sensors.
+8. The ESP32 sends telemetry and safety events back to the Raspberry Pi.
+9. The Raspberry Pi updates the robot state and web interface.
+
+### Startup Sequence
+
+A simplified startup sequence is:
+
+```text
+Power on
+    ↓
+ESP32 initializes in a safe stopped state
+    ↓
+Raspberry Pi boots Linux
+    ↓
+SEEKR software starts
+    ↓
+Camera and serial communication initialize
+    ↓
+Hardware/software readiness checks
+    ↓
+IDLE
+```
+
+### What I still need to understand
+- setting up the Raspberry Pi operating system
+- connecting to the Pi using SSH
+- working with the camera on the Raspberry Pi
+- implementing Raspberry Pi ↔ ESP32 serial communication
+- integrating perception and search software
+- implementing the high-level state machine
+- configuring automatic startup
+- logging and fault recovery
