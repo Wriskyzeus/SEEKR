@@ -886,3 +886,111 @@ Critical sensor faults or communication failures must prevent unsafe autonomous 
 - measuring detection latency and stopping distance
 - implementing boundary inhibition and safe recovery
 - validating containment through physical testing
+
+## 15. Camera and Perception Integration
+
+### What is the camera's role in SEEKR?
+
+The camera captures images of SEEKR's arena and target objects. These images are processed by Eli's perception software on the Raspberry Pi 5.
+
+Important camera characteristics include:
+
+- **Resolution:** Affects image detail and processing workload.
+- **Frame rate:** Determines capture frequency, which may differ from object-detection frequency.
+- **Field of view:** Determines how much of the environment is visible.
+- **Mounting position and orientation:** Affect the interpretation of target locations.
+- **Lighting, focus, and motion blur:** Affect detection reliability.
+
+Camera-to-robot alignment must be checked after installation.
+
+### What does the perception system output?
+
+The perception subsystem should produce structured observations containing:
+
+- target identity or class
+- detection confidence
+- bounding-box coordinates
+- target-center coordinates, in pixels or normalized units
+- observation timestamp
+- optional frame identifier
+- explicit `DETECTED`, `NO_DETECTION`, or `ERROR` status
+
+A detection describes what the camera observed; it is **not a motor command**.
+
+Detection confidence does not necessarily represent a calibrated probability of correctness.
+
+### Important Concepts
+
+- **Frame:** An image captured at a particular time.
+- **FPS:** Frames captured or processed per second.
+- **Field of view:** Angular extent visible to the camera.
+- **Classification:** Identifies image content.
+- **Object detection:** Identifies objects and estimates their image locations.
+- **Bounding box:** Rectangle approximately enclosing a detected object.
+- **Normalized coordinates:** Image coordinates scaled relative to image dimensions.
+- **Alignment error:** Difference between the object's horizontal image position and the desired position.
+- **Deadband:** Small acceptable range of alignment error.
+- **Observation freshness:** Whether a detection is recent enough to be trusted for a decision.
+- **False positive:** Incorrectly reporting a target.
+- **False negative:** Failing to detect a visible target.
+- **VERIFY:** Confirming a candidate target using additional trustworthy observations.
+
+### How Perception Connects to Robot Motion
+
+```mermaid
+flowchart TD
+    A["Camera Captures Frame"] --> B["Perception System<br/>Eli"]
+    B --> C["Structured Detection Result"]
+    C --> D["Pi Behavior and Search Logic<br/>Eli"]
+    D --> E["Desired Motion or STOP"]
+    E --> F["Serial Communication"]
+    F --> G["ESP32 Motion Control<br/>Toufic"]
+    G --> H["Motor Driver and Motors"]
+    H --> I["Physical Robot Movement"]
+    G --> J["Encoder and Safety Telemetry"]
+    J --> D
+```
+
+The Pi evaluates the selected target, detection confidence, observation freshness, and robot state before requesting movement.
+
+The ESP32 translates permitted motion requests into wheel-speed targets, regulates the motors, and enforces low-level safety.
+
+**Perception does not directly control motor PWM.**
+
+### Integration and Reliability
+
+- Maintain clear interfaces between perception, behavior logic, and motor control.
+- Use consistent image and robot coordinate conventions.
+- Distinguish frame capture time from processing completion time.
+- Avoid processing excessive backlogs of outdated frames.
+- Never treat stale detections as fresh observations.
+- A working serial connection does not guarantee healthy perception.
+- Inhibit perception-dependent motion when observations become untrustworthy.
+- Distinguish `NO_DETECTION` from a perception-system failure.
+- Use ESP32 telemetry to diagnose motion-control problems.
+- Boundary and communication safety override camera-driven movement.
+- Test perception using recorded images and simulated detection results before full robot integration.
+
+### FOUND, ALIGN, and APPROACH
+
+The baseline SEEKR V1 objective is to **locate and visually confirm the user-selected object**.
+
+- **VERIFY:** Confirms that the selected object has been reliably detected.
+- **FOUND:** Reports that the required success condition has been satisfied.
+- **ALIGN:** Optionally rotates the robot to center the target.
+- **APPROACH:** Optionally moves toward the target, requiring additional distance-estimation and safety considerations.
+
+Whether ALIGN and APPROACH are required for V1 remains a team design decision.
+
+### What I Still Need to Understand
+
+- confirming the final V1 FOUND condition with Eli
+- deciding whether ALIGN and APPROACH are required
+- defining the perception-to-behavior interface
+- agreeing on coordinate conventions and timestamp handling
+- selecting confidence and observation-freshness rules
+- defining transitions for detection, target loss, and faults
+- selecting and mounting the actual camera
+- measuring detection latency and motion response
+- testing the complete perception-to-motion system
+
