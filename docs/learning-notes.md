@@ -733,3 +733,73 @@ The ESP32 must keep the motors stopped until both controllers complete their rea
 - implementing the high-level state machine
 - configuring automatic startup
 - logging and fault recovery
+
+## 13. Reliable Raspberry Pi–ESP32 Communication
+
+### How do the Raspberry Pi and ESP32 communicate?
+
+Through bidirectional serial communication (USB serial or direct UART).
+
+- **Raspberry Pi → ESP32:** Motion commands, STOP, and control information.
+- **ESP32 → Raspberry Pi:** Telemetry, readiness, boundary events, and fault information.
+
+### Why does SEEKR need a communication protocol?
+
+Serial communication transfers bytes, not complete commands automatically.
+
+A protocol defines message boundaries, data formats, command meanings, validation rules, and failure behavior so both controllers can communicate reliably and safely.
+
+### Important Concepts
+
+- **Framing:** Defines where a message starts and ends.
+- **Buffering:** Temporarily stores incoming bytes until a complete message is received.
+- **Parsing:** Extracts command types and data fields.
+- **Validation:** Rejects malformed, incomplete, unknown, non-finite, or unsafe commands.
+- **Acknowledgement (ACK):** Confirms a defined level of message acceptance, not necessarily completion of the requested physical action.
+- **Sequence number:** Helps identify duplicate, missing, and obsolete messages.
+- **Checksum / CRC:** Detects many accidental transmission errors but does not guarantee delivery or safety.
+- **Command freshness:** Movement commands must remain sufficiently recent to authorize motion.
+- **Heartbeat:** Indicates communication health but does not independently authorize movement.
+- **Session synchronization:** Establishes a valid communication context after startup, reset, or reconnection.
+- **Idempotence:** Repeating certain commands, such as STOP, should not create unintended additional effects.
+
+### What should the Raspberry Pi send?
+
+- Desired linear and angular velocity, or left/right wheel-speed targets.
+- STOP commands.
+- Movement authorization and session information.
+- Startup synchronization and configuration commands.
+
+The Raspberry Pi should not continuously send raw motor PWM values. Low-level motor control belongs to the ESP32.
+
+### What should the ESP32 return?
+
+- Controller readiness and communication status.
+- Measured wheel speeds.
+- Encoder measurements.
+- Boundary-sensor readings and events.
+- Fault and safety states.
+- Optional wheel-odometry estimates.
+- Acknowledgements for selected commands.
+
+### Safety Behavior
+
+The ESP32 must enforce safety independently of the Raspberry Pi.
+
+- Validate commands before execution.
+- Reject invalid commands without changing motor targets.
+- Stop the motors when fresh valid movement commands stop arriving.
+- Allow boundary protection to override normal movement requests.
+- Prevent outdated commands from restarting motion after STOP.
+- Keep motor-driver outputs safe during startup and controller resets.
+- Require synchronization after faults, resets, and reconnection.
+- Never automatically resume previous motion after reconnection.
+
+### What I Still Need to Understand
+
+- Selecting USB serial or direct UART for the final hardware.
+- Designing the actual message formats in `protocol.md`.
+- Choosing sequence-number, acknowledgement, and CRC rules.
+- Establishing appropriate communication rates and timeouts.
+- Implementing message parsing and validation.
+- Testing communication loss, resets, reconnection, and safe motor stopping.
