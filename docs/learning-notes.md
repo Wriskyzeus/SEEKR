@@ -694,25 +694,34 @@ The exact implementation may change during development.
 8. The ESP32 sends telemetry and safety events back to the Raspberry Pi.
 9. The Raspberry Pi updates the robot state and web interface.
 
+
 ### Startup Sequence
 
-A simplified startup sequence is:
+A simplified SEEKR startup sequence is:
 
-```text
-Power on
-    ↓
-ESP32 initializes in a safe stopped state
-    ↓
-Raspberry Pi boots Linux
-    ↓
-SEEKR software starts
-    ↓
-Camera and serial communication initialize
-    ↓
-Pi and ESP32 perform readiness checks
-    ↓
-IDLE
+```mermaid
+flowchart TD
+    A["Power On"] --> B["ESP32 Initializes<br/>Motors Remain Stopped"]
+    B --> C["Raspberry Pi Boots Linux"]
+    C --> D["SEEKR Software Starts"]
+    D --> E["Camera and Serial Communication Initialize"]
+    E --> F{"Pi and ESP32 Ready?"}
+    F -->|No| G["Remain Stopped<br/>Wait or Report Fault"]
+    G --> F
+    F -->|Yes| H["IDLE<br/>Ready for Mission"]
+
+    style A fill:#2563eb,color:#fff,stroke:#1d4ed8
+    style B fill:#374151,color:#fff,stroke:#6b7280
+    style C fill:#374151,color:#fff,stroke:#6b7280
+    style D fill:#374151,color:#fff,stroke:#6b7280
+    style E fill:#374151,color:#fff,stroke:#6b7280
+    style F fill:#d97706,color:#fff,stroke:#b45309
+    style G fill:#b91c1c,color:#fff,stroke:#991b1b
+    style H fill:#15803d,color:#fff,stroke:#166534
 ```
+
+The ESP32 must keep the motors stopped until both controllers complete their readiness checks. SEEKR only enters the IDLE state when the required systems are ready.
+
 
 ### What I still need to understand
 
