@@ -803,3 +803,86 @@ The ESP32 must enforce safety independently of the Raspberry Pi.
 - Establishing appropriate communication rates and timeouts.
 - Implementing message parsing and validation.
 - Testing communication loss, resets, reconnection, and safe motor stopping.
+
+## 14. Black-Tape Boundary Sensing
+
+### What is boundary sensing?
+
+Boundary sensing allows SEEKR to detect the black-tape perimeter of its wooden-floor arena using downward-facing infrared (IR) reflectance sensors.
+
+An IR emitter illuminates the surface, while a receiver measures reflected infrared light. Different materials produce different readings, but visible color does not necessarily determine infrared reflectance.
+
+The actual floor and tape must be tested before selecting detection thresholds.
+
+### Why does SEEKR need it?
+
+SEEKR must autonomously search for objects while remaining inside its designated arena.
+
+The ESP32 monitors boundary sensors independently of the Raspberry Pi, allowing it to execute protective behavior even when high-level software is delayed or unresponsive.
+
+Boundary safety always takes priority over ordinary movement commands.
+
+### Important Concepts
+
+- **IR reflectance:** Amount of infrared light reflected from a surface.
+- **Analog output:** Variable electrical measurement read through an ADC.
+- **Digital output:** Binary classification, often produced by a comparator.
+- **Threshold:** Measurement used to distinguish tape from flooring.
+- **Calibration:** Measuring actual floor and tape responses to determine reliable thresholds.
+- **Hysteresis:** Different thresholds for entering and leaving a detection state, reducing rapid switching.
+- **Filtering:** Reduces measurement noise but may introduce detection delay.
+- **False positive:** Detecting tape when the sensor is over the floor.
+- **False negative:** Failing to detect tape when the sensor is over it.
+- **Detection latency:** Delay between a detectable boundary condition and the start of the protective response.
+- **Stopping distance:** Distance traveled during detection delay and braking.
+- **Swept envelope:** The complete area occupied by SEEKR's chassis, wheels, caster, and other protrusions as it moves or rotates.
+- **Boundary inhibit:** Protective state preventing ordinary motion commands from overriding a boundary event.
+
+### Sensor Placement and Calibration
+
+Boundary coverage must consider the robot's **entire physical footprint**, not just its front wheels.
+
+Important considerations:
+
+- forward and reverse movement
+- curved movement and rotation
+- wheels, caster, and chassis overhang
+- tape width and sensor position
+- detection latency and braking distance
+- required safety margin
+
+Four sensor regions near the chassis corners are an initial layout candidate, **not a finalized design**.
+
+The final number and placement of sensors will depend on chassis geometry and real-world testing.
+
+Calibration will involve measuring floor and tape reflectance under different lighting conditions, mounting heights, operating speeds, and floor locations.
+
+### Boundary Safety Behavior
+
+The ESP32 must enforce boundary protection independently of the Raspberry Pi.
+
+When an unsafe boundary condition occurs:
+
+1. The ESP32 inhibits ordinary movement commands.
+2. The motors execute a safe stop.
+3. The ESP32 reports the boundary event to the Raspberry Pi.
+4. Boundary protection remains active until recovery conditions are satisfied.
+5. The Raspberry Pi may request a cautious recovery maneuver.
+6. The ESP32 permits only motion consistent with its safety restrictions.
+
+Reversing is not automatically safe. If the safe recovery direction cannot be established, SEEKR must remain stopped.
+
+Critical sensor faults or communication failures must prevent unsafe autonomous movement.
+
+**Detecting the tape does not automatically guarantee that SEEKR remains inside the arena.** Physical containment must be verified using real stopping-distance and sensor-coverage tests.
+
+### What I Still Need to Understand
+
+- selecting the final chassis dimensions and mechanical footprint
+- determining tape width and containment requirements
+- selecting suitable IR reflectance sensors
+- measuring actual sensor coverage
+- calibrating floor/tape detection thresholds
+- measuring detection latency and stopping distance
+- implementing boundary inhibition and safe recovery
+- validating containment through physical testing
