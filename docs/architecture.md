@@ -213,96 +213,53 @@ The mechanical and software architecture should leave room for an IMU without ma
 
 ## Camera and Perception Subsystem
 
-The camera provides visual observations to the Raspberry Pi.
+The camera supplies frames to the Raspberry Pi 5. Eli's perception subsystem evaluates them for the user's chosen target among four known objects. The output is an observation, **not** a motor command.
 
-The perception subsystem evaluates camera frames for the object currently selected by the user.
+Candidate observation fields include target identity, confidence, bounding box or center, frame capture time, optional frame ID, and explicit DETECTED, NO_DETECTION, and ERROR states. The Pi must distinguish fresh observations from stale or frozen ones; healthy serial communication does not guarantee healthy perception.
 
-SEEKR Version 1 will search for one of four known target objects.
+For V1, a trustworthy target candidate moves the mission from SEARCH to VERIFY. The team will define verification evidence and timeout rules before implementation. Confirmed visual detection satisfies the current V1 FOUND condition. Camera alignment and practical mounting checks are required during integration; target approach is not required for V1.
 
-A successful perception output may contain information such as:
-
-- object class
-- detection confidence
-- bounding-box position
-- target center position in the image
-- approximate target size in the image
-
-The high-level behavior system can use this information to determine whether the robot should continue searching, rotate toward the object, approach it, or report success.
-
-The exact model, neural-network architecture, training process, and detection thresholds remain implementation decisions.
-
+Eli owns perception and high-level search software. Toufic owns the embedded motion/safety platform; both collaborate on the interface and integration.
 ## Search and Behavior Logic
 
-The Raspberry Pi maintains SEEKR's high-level robot state.
-
-The initial behavior model is expected to contain states similar to:
+The Raspberry Pi owns the mission state machine; the ESP32 owns independent local motor safety.
 
 ```mermaid
 flowchart TD
-    IDLE["IDLE"]
-    SEARCH["SEARCH"]
-    VERIFY["VERIFY / ALIGN"]
-    APPROACH["APPROACH"]
-    FOUND["FOUND"]
-    FAULT["FAULT / STOP"]
-
-    IDLE -->|"Start Mission"| SEARCH
-    SEARCH -->|"Target Candidate"| VERIFY
-    VERIFY -->|"Confirmed"| APPROACH
-    VERIFY -->|"Rejected"| SEARCH
-    APPROACH -->|"Target Reached"| FOUND
-
-    SEARCH -->|"Critical Fault"| FAULT
-    VERIFY -->|"Critical Fault"| FAULT
-    APPROACH -->|"Critical Fault"| FAULT
+    IDLE["IDLE / Ready"] -->|"Authorized start"| SEARCH["SEARCH"]
+    SEARCH -->|"Candidate target observed"| VERIFY["VERIFY"]
+    VERIFY -->|"Rejected or insufficient evidence"| SEARCH
+    VERIFY -->|"Confirmed selected target"| FOUND["FOUND / Motors stopped"]
+    SEARCH -->|"User stop"| STOPPED["STOPPED"]
+    VERIFY -->|"User stop"| STOPPED
+    SEARCH -->|"Critical fault"| FAULT["FAULT"]
+    VERIFY -->|"Critical fault"| FAULT
+    STOPPED -->|"Reset and ready"| IDLE
+    FAULT -->|"Fault cleared and reauthorized"| IDLE
 ```
 
-The exact search strategy is not defined by this architecture document.
+**V1 mission:** select one of four objects → autonomously search inside the taped arena → visually verify the selected object → stop and report FOUND. No approach-to-target or retrieval is required.
 
-The search subsystem determines **where the robot should move**, while the ESP32 motion-control subsystem determines **how the physical robot executes that movement**.
+ALIGN and APPROACH remain future enhancements, not active V1 states. The search algorithm and the exact confirmation rule will be agreed with Eli before implementation. A boundary event may cause a local ESP32 stop and a Pi-coordinated recovery; recovery must never bypass low-level safety.
 
+STOPPED represents a normal interruption. FAULT represents an abnormal condition requiring explicit clearance and reauthorization. No restart or reconnection automatically restores old motion.
 ## Boundary Detection
 
-SEEKR Version 1 operates inside a flat arena surrounded by a black tape boundary.
+Downward-facing IR reflectance sensors will monitor the black-tape perimeter of a flat wooden-floor arena. The ESP32 enforces a local boundary inhibit and safe stop independently of Raspberry Pi processing.
 
-Downward-facing reflectance sensors will detect the boundary.
+**Detection does not guarantee containment.** Sensor coverage, tape width, chassis swept footprint, detection latency, speed, and stopping distance must be assessed and tested with the physical robot. Sensor count and placement are not finalized; corner-region coverage is only an initial design candidate.
 
-Boundary detection is treated as a low-level safety function.
-
-If a boundary is detected, the ESP32 should be capable of immediately stopping or preventing further outward movement without waiting for a Raspberry Pi decision.
-
-The ESP32 will then report the event to the Raspberry Pi.
-
-The Raspberry Pi can decide the appropriate recovery behavior, such as:
-
-- reversing
-- turning
-- resuming the search
-- entering a fault state
-
-The tape boundary is a Version 1 containment mechanism. It is not a substitute for mapping, localization, or obstacle avoidance.
-
+After an event, the Pi may request a cautious recovery maneuver, but the ESP32 must allow only motion consistent with its safety restrictions. Reversing is not inherently safe. Uncertain clearance, invalid sensor data, or loss of valid control commands keeps the robot stopped. Boundary events and faults are reported in telemetry.
 ## Raspberry Pi ↔ ESP32 Communication
 
-The Raspberry Pi and ESP32 will communicate using a serial interface.
+The controllers exchange commands and telemetry over **serial communication**, using USB serial or direct UART depending on final hardware selection.
 
-The physical implementation may use USB serial or direct UART depending on the final hardware configuration.
+- **Pi → ESP32:** authorized robot linear/angular velocity or wheel-speed requests, STOP, startup/session synchronization, and selected configuration.
+- **ESP32 → Pi:** readiness, wheel speeds, encoder data, boundary states/events, controller faults, motion-inhibit status, acknowledgements for selected messages, and optional odometry.
 
-The Raspberry Pi sends high-level commands such as desired motion or robot-state commands.
+The ESP32 must validate framing, fields, limits, and command/session freshness before executing movement. Missing fresh authorized commands trigger a safe stop; heartbeat or reconnection alone does not authorize motion. A reset requires synchronization before new motion. Low-level wheel-speed loops remain on the ESP32.
 
-The ESP32 returns telemetry such as:
-
-- left wheel speed
-- right wheel speed
-- encoder counts
-- boundary-sensor state
-- controller state
-- motor state
-- fault information
-- optional odometry information
-
-The final packet format, update frequency, acknowledgement system, and error handling will be defined in `protocol.md`.
-
+The candidate message formats, acknowledgement/sequence/CRC rules, timing, and fault semantics will be finalized through `docs/protocol.md` and physical testing.
 ## Web Interface
 
 The web interface provides the user-facing control layer.
@@ -321,77 +278,40 @@ The exact UI framework and network configuration are not yet finalized.
 
 ## System Data Flow
 
-1. The user selects one of four target objects using the web interface.
-2. The Raspberry Pi records the requested target.
-3. SEEKR enters the search state.
-4. The camera continuously provides frames to the perception system.
-5. The perception system reports whether the requested target is visible.
-6. The high-level search and behavior logic decides the desired robot motion.
-7. The Raspberry Pi sends the motion request to the ESP32.
-8. The ESP32 converts the requested motion into left and right wheel-speed setpoints.
-9. Independent PI/PID controllers regulate the two wheel speeds using encoder feedback.
-10. The ESP32 drives the motors through the motor driver.
-11. Boundary sensors are continuously monitored.
-12. If the tape boundary is detected, the ESP32 executes an immediate protective response and reports the event.
-13. The ESP32 continuously sends telemetry to the Raspberry Pi.
-14. When the requested object is detected, SEEKR transitions from search to verification/alignment.
-15. Once aligned, SEEKR approaches the object.
-16. When the near-target condition is satisfied, SEEKR stops and enters the FOUND state.
-17. The web interface reports mission success to the user.
-
+1. Both controllers power on in a motor-safe condition and establish readiness.
+2. A user selects one of the four target objects and starts an authorized mission.
+3. The Pi enters SEARCH, processes fresh camera observations, and chooses a search movement.
+4. The Pi transmits validated, time-bounded motion requests to the ESP32.
+5. The ESP32 enforces safety, computes wheel-speed targets, and regulates both motors using encoder feedback.
+6. The ESP32 monitors tape sensors and reports motor, boundary, and fault telemetry.
+7. A possible selected-object detection leads the Pi to VERIFY; rejected candidates return to SEARCH.
+8. Upon confirmed visual identification, the Pi requests STOP and enters FOUND only when the robot is safely stopped according to the final state/telemetry contract.
+9. The web interface reports the selected object and mission result.
+10. Stop requests, boundary events, stale perception, serial loss, and faults take precedence over ordinary mission movement as defined by their owning safety mechanisms.
 ## Version 1 Scope
 
-SEEKR Version 1 is intentionally constrained.
+**Included in V1**
+- Flat indoor wooden-floor arena with black-tape perimeter and no intentional obstacles.
+- Four known target objects, with their positions varied between trials.
+- User target selection, mission start/stop, and status reporting through a web interface.
+- Autonomous search, selected-target visual detection, and confirmation (VERIFY).
+- Safe stopping and FOUND reporting once the confirmation condition is met.
+- Two powered wheels with encoders plus one passive caster.
+- ESP32 closed-loop wheel-speed control, boundary sensing/inhibit, and independent command freshness timeout.
+- Raspberry Pi perception/search/mission logic and bidirectional serial telemetry.
+- Progressive hardware and full-system testing.
 
-Version 1 includes:
+**Not required for V1**
+- Aligning to or approaching the target after verification.
+- Object pickup, gripper, robotic arm, or retrieval.
+- Obstacle avoidance, LiDAR, SLAM, room mapping, or tape-free navigation.
+- IMU-based sensor fusion, full localization, arbitrary-object recognition, or ROS 2.
 
-- flat indoor floor
-- bounded arena
-- black tape perimeter
-- no intentional obstacles
-- four known target objects
-- randomized object positions
-- autonomous target search
-- autonomous target recognition
-- target alignment and approach
-- two-wheel differential-drive motion
-- encoder-based closed-loop motor control
-- Raspberry Pi and ESP32 communication
-- web-based target selection and robot status
-
-Version 1 does **not** require:
-
-- object pickup or retrieval
-- robotic arm or gripper
-- obstacle avoidance
-- SLAM
-- LiDAR
-- autonomous room mapping
-- multi-room navigation
-- removal of the tape boundary
-- full-house localization
-- generalized recognition of arbitrary objects
-
-These capabilities may be considered in later SEEKR versions.
-
+Future versions can add ALIGN/APPROACH, retrieval, and unconstrained navigation without changing the V1 acceptance criteria.
 ## Design Status
 
-This document represents the current planned SEEKR Version 1 architecture.
+This document defines the **current V1 planning baseline**, not completed hardware or software. The current success condition is visually verified target detection followed by a safe stop and FOUND report. Any decision to add APPROACH to V1 must be agreed with Eli and updated in the requirements, architecture, README, and tests together.
 
-Several implementation decisions remain intentionally open until hardware is selected and tested, including:
+Open implementation decisions include motor/wheel/driver selection, chassis dimensions, battery and protected voltage rails, sensor and camera choice, PI/PID tuning, search strategy, verification criterion, the exact Pi–ESP32 protocol, and measurable acceptance thresholds. Wheel odometry may be used where useful; full localization and an IMU are optional.
 
-- exact motor model
-- motor-driver model
-- wheel dimensions
-- PI versus PID control
-- control-loop frequency
-- battery and power architecture
-- boundary-sensor selection
-- camera selection
-- exact Raspberry Pi ↔ ESP32 serial protocol
-- perception model
-- search strategy
-- odometry requirements
-- optional IMU use
-
-The architecture may evolve during prototyping, but the separation between high-level Raspberry Pi behavior and low-level ESP32 hardware control is expected to remain a core design principle.
+See `docs/requirements.md` for scope, `docs/protocol.md` for communication, `docs/hardware.md` for component decisions, `docs/integration.md` for cross-subsystem handoffs, and `docs/testing.md` for verification.

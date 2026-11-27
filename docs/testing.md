@@ -1,48 +1,56 @@
 # SEEKR Version 1 Testing Strategy
 
+> Planning strategy only; no physical test results or numerical thresholds have been claimed.
+
 ## Purpose
 
-Testing will progress from isolated hardware checks to repeatable end-to-end autonomous-search trials. No test results are recorded in this document yet; it defines the initial strategy and the measurements the team intends to collect.
+Demonstrate that SEEKR can safely search a taped arena, **visually verify the user-selected object**, stop, and report FOUND. Target approach and near-target stopping-distance tests are deferred beyond V1.
 
-## Test Levels
+## Progressive Test Levels
 
-| Level | Goal | Example tests |
+| Level | Objective | Example test |
 | --- | --- | --- |
-| Component | Verify individual devices and interfaces | Individual motors, encoders, boundary sensors, camera, UART |
-| Subsystem | Verify related components together | Motor/encoder control, perception pipeline, web-to-Pi target selection |
-| Integration | Verify Raspberry Pi and ESP32 behavior together | Command/telemetry exchange, boundary response, target approach |
-| System | Verify the Version 1 mission | Complete autonomous search in the defined arena |
+| Component | Validate one part/interface safely | One motor + encoder, sensor readings, camera capture |
+| Subsystem | Validate related parts | Two-wheel PI/PID, boundary inhibit, target verification on recorded frames |
+| Integration | Validate Pi/ESP32 and behavioral handoffs | Authorized motion + telemetry, STOP, timeout/reconnect, simulated detections |
+| System | Validate full V1 mission | Autonomous search → VERIFY → safe stop → FOUND report |
 
 ## Initial Test Matrix
 
-| Test | Objective | Example observations to record |
+| Test | What to verify | Observations |
 | --- | --- | --- |
-| Individual motors | Confirm each motor drives in both directions under controlled commands | Direction, response consistency, current concerns, abnormal behavior |
-| Encoder accuracy | Relate encoder readings to known wheel movement | Counts, repeatability, distance/rotation estimate error |
-| Straight-line driving | Assess ability to drive a repeatable straight path | Drift, distance travelled, heading change, trial conditions |
-| Turning | Assess repeatable turning behavior | Commanded behavior, observed heading change, repeatability |
-| Boundary detection | Verify detection of black tape and defined response | Sensor readings, detection rate, response timing, missed events |
-| Pi ↔ ESP32 communication | Verify command delivery and telemetry reporting | Message integrity, latency, parsing errors, disconnect recovery |
-| Object recognition | Evaluate recognition of selected known targets | Detection accuracy, false detections, lighting/viewpoint notes |
-| Target approach | Evaluate movement from detection toward target | Approach success, stopping distance error, target reacquisition |
-| Complete autonomous search | Exercise selection, search, detection, approach, stop, and reporting | Search outcome, time, distance, boundary events, logs |
+| Power-up and reset | Motor outputs remain safe on startup/reset | Voltage rails, unexpected motion, fault state |
+| Single motor + encoder | Correct direction, counts, and controllability | Encoder increments, PWM response, current/heat concerns |
+| Two motors and closed loop | Independent speed tracking | Setpoint/measured speed, drift, oscillation |
+| Differential drive | Repeatable straight/turn behavior | Motion error, encoder logs, speed |
+| Tape sensor calibration | Floor/tape discrimination and fault handling | Thresholds, missed/false events, lighting |
+| Physical containment | Whole robot stays within defined limit | Stopping distance, footprint, boundary violations |
+| Serial reliability | Commands/telemetry, invalid input, timeout, reconnect | Latency, rejected messages, inhibited motion |
+| Perception verification | Selected target distinguished and reliably confirmed | True/false detections, observation age, confusion among four objects |
+| Perception health | Frozen/stale frames do not permit unsafe decisions | Timeouts, state transitions, stopped behavior |
+| Behavior integration | Simulated detection → SEARCH/VERIFY/FOUND | State changes, stop request and confirmation |
+| End-to-end V1 | Target selection through verified FOUND | Search time, correct result, boundary events, logs |
 
-## Metrics To Record
+## Metrics
 
-| Metric | Description |
-| --- | --- |
-| Search success rate | Fraction of defined trials in which the selected target is found and approached successfully. |
-| Average search time | Time from search start to success or defined termination condition. |
-| Distance travelled | Estimated or measured path length per trial. |
-| Object-detection accuracy | Correctness of detections under documented test conditions. |
-| False detections | Detections reported for an incorrect target or when no valid target is present. |
-| Boundary violations | Instances in which the robot crosses, or fails to respond appropriately to, the arena boundary. |
-| Stopping distance error | Difference between intended and observed stopping distance relative to the target. |
+- **Verified search success rate:** Fraction of trials ending in correctly verified selected-target FOUND with safe stopping.
+- **Time to verified FOUND:** Duration from authorized start to verified success; record timeouts/failures separately.
+- **False FOUND rate:** Trials in which the wrong target or an unverified observation triggers success.
+- **Missed target / timeout rate:** Trials with no successful confirmation before a defined limit.
+- **Boundary violations:** Events where the defined containment limit is exceeded.
+- **Boundary response:** Detection latency, braking/stopping distance, and recovery behavior.
+- **Motion tracking:** Desired versus measured wheel speed; odometry/path length only if used.
+- **Reliability:** Command/telemetry faults, resets, perception freshness violations, and recovery success.
 
 ## Test Discipline
 
-- Document arena dimensions, tape layout, target identity and position, lighting, camera configuration, and software/firmware revision for each trial.
-- Define a safe manual-stop procedure before powered motion tests.
-- Start with low-speed, supervised tests and increase complexity only after reviewing results.
-- Keep raw logs and observations separate from conclusions; record failures as well as successful trials.
-- Add acceptance thresholds only after baseline measurements are available.
+1. Define arena dimensions, tape width, permitted containment limit, test objects, lighting, and starting position.
+2. Document hardware configuration and firmware/software revision.
+3. Establish and test a manual stop before autonomous drive tests.
+4. Begin with slow, supervised trials; do not test containment by assuming detection alone is sufficient.
+5. Record raw observations/logs, pass/fail outcomes, and conditions.
+6. Set measurable numerical acceptance criteria after initial baseline measurements; do not fabricate success rates.
+
+## Deferred Tests
+
+ALIGN/APPROACH, near-target stopping accuracy, object retrieval, obstacle avoidance, and mapping belong to future versions unless the team explicitly changes V1 scope.

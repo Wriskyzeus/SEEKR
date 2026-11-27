@@ -1,64 +1,67 @@
 # SEEKR Version 1 Engineering Requirements
 
+**Status:** Working V1 baseline for team agreement; quantitative thresholds and final interface contracts remain open.
+
 ## Mission
 
-SEEKR Version 1 shall autonomously locate and approach a user-selected object in a bounded, flat indoor arena, then report that the target has been found.
+SEEKR V1 shall autonomously **locate and visually verify** one of four user-selected known objects in a flat, bounded indoor arena, safely stop, and report FOUND. Approaching or retrieving the object is not a V1 requirement.
 
-## Scope
+## Operating Environment and System Constraints
 
-The Version 1 system consists of a differential-drive mobile rover, a Raspberry Pi 5 for high-level computing, an ESP32 for low-level control, an onboard camera, and downward-facing boundary sensors. A user selects one of four known target objects using a web interface. The robot searches an arena with a black tape boundary and no obstacles, detects the selected object, approaches it, stops nearby, and communicates its result.
+- Flat indoor wooden floor; black-tape perimeter; no intentional obstacles.
+- Four known target objects; object positions can vary between trials.
+- Two independently driven geared DC wheels with encoders and one passive caster.
+- Raspberry Pi 5 runs camera/perception, web interface, search and mission behavior.
+- ESP32 runs motor control, encoder acquisition, boundary monitoring, and immediate motion safety.
+- Protected battery, appropriate regulation, and a defined stop mechanism.
+- Pi↔ESP32 serial interface (USB serial or direct UART, pending hardware selection).
 
 ## Functional Requirements
 
 | ID | Requirement |
 | --- | --- |
-| FR-01 | The system shall allow a user to select one of four known target objects through the web interface. |
-| FR-02 | The Raspberry Pi shall maintain the high-level search state and issue motion commands to the ESP32. |
-| FR-03 | The ESP32 shall control the two drive motors and acquire wheel-encoder data. |
-| FR-04 | The system shall acquire camera data and evaluate it for the selected target. |
-| FR-05 | The robot shall execute a search behavior while remaining within the bounded arena. |
-| FR-06 | The robot shall detect the black tape boundary using downward-facing sensors and execute a defined boundary response. |
-| FR-07 | After detecting the selected target, the robot shall attempt to approach and stop near it. |
-| FR-08 | The system shall report target-found status to the web interface. |
-| FR-09 | The Raspberry Pi and ESP32 shall exchange commands and telemetry over serial/UART. |
+| FR-01 | The web interface shall permit selection of one of four known target objects. |
+| FR-02 | An authorized start command shall initiate an autonomous search; STOP shall interrupt the mission. |
+| FR-03 | The Pi shall manage SEARCH, VERIFY, FOUND, STOPPED and FAULT mission states, with explicit transition conditions. |
+| FR-04 | The camera/perception system shall provide observations of the selected target with sufficient identity, location and timing information for verification. |
+| FR-05 | SEARCH shall move the robot autonomously while respecting the bounded arena and active safety restrictions. |
+| FR-06 | VERIFY shall use a defined confirmation rule before declaring the user-selected target FOUND; a rejected or insufficient candidate shall not produce success. |
+| FR-07 | Once the selected target is verified, the system shall stop safely and report FOUND to the web interface. |
+| FR-08 | The ESP32 shall control two drive motors using encoder feedback and report essential motion telemetry. |
+| FR-09 | The ESP32 shall monitor black-tape sensors and locally inhibit unsafe movement independently of the Pi. |
+| FR-10 | The Pi and ESP32 shall exchange validated, time-bounded motion commands, readiness, telemetry, and relevant fault states. |
+| FR-11 | Invalid or stale motion authorization, reset, or critical faults shall not cause autonomous movement to resume without a fresh valid authorization. |
 
 ## Non-Functional Requirements
 
-| Category | Requirement |
+| Area | Requirement |
 | --- | --- |
-| Safety | The robot shall provide a stop behavior and should fail to a safe stopped state when communication or control faults are detected. |
-| Maintainability | Hardware interfaces, firmware, high-level software, and protocol definitions should be documented and modular. |
-| Observability | Development builds should support logging or inspection of robot state, commands, sensor readings, and detection events. |
-| Repeatability | Tests should define arena layout, lighting, target placement, and trial procedure sufficiently to support repeatable comparison. |
-| Usability | The target-selection workflow and success/failure status should be understandable without direct access to source code. |
+| Safety | Local boundary protection and loss-of-command stopping shall override ordinary movement. Verify containment including chassis footprint and stopping distance. |
+| Reliability | Perception observations must meet a freshness rule; frozen/stale observations must not drive perception-dependent motion. |
+| Observability | Development tests shall record commanded and measured motion, boundary/fault events, and detection/verification outcomes. |
+| Repeatability | Trials shall record arena, tape, lighting, target identity/position, software revisions, and procedures. |
+| Maintainability | Keep clear subsystem ownership, modular interfaces, and documented electrical and software contracts. |
+| Usability | The web interface shall clearly indicate selected target, mission status, and successful/failed/stopped outcomes. |
 
-## Constraints
+## V1 Acceptance Criteria (Qualitative Until Measured)
 
-- The Version 1 arena is flat, bounded, indoors, and initially obstacle-free.
-- A black tape boundary defines the permitted search area.
-- Only four known target objects are in scope; their positions may vary between trials.
-- The Raspberry Pi 5 performs Linux-hosted, high-level computing and vision work.
-- The ESP32 performs low-level motor, encoder, sensor, and UART work.
-- The robot uses two DC drive motors with wheel encoders, a motor driver, a camera, and downward-facing boundary sensors.
-- Version 1 prioritizes a constrained, testable baseline over general indoor autonomy.
+The robot must demonstrate that it can:
+1. Receive the selected target and start safely.
+2. Move autonomously while respecting its defined taped-area containment criterion.
+3. Distinguish and verify the requested object (not merely any known object).
+4. Stop safely when the verification criterion is met.
+5. Report FOUND for the correct target, and distinguish ordinary stop from fault.
+6. Respond safely to boundary detection and relevant communication/control failures.
 
-## Success Criteria
+The team will define quantitative pass thresholds and a repeatable trial protocol after the first hardware and perception baseline tests.
 
-Version 1 will be considered ready for a defined demonstration when documented test procedures show that the robot can:
+## Explicitly Excluded from V1
 
-1. accept a user-selected target;
-2. remain inside the taped arena during a search trial;
-3. identify the requested target rather than merely any known object;
-4. approach and stop near the detected target; and
-5. report the result through the user interface.
+- Target ALIGN/APPROACH and near-target stopping-distance requirement.
+- Gripper, retrieval, robotic arm, and object pickup.
+- Obstacle avoidance, LiDAR, SLAM, mapping or unrestricted navigation.
+- Mandatory IMU/fused localization, ROS 2, or arbitrary-object recognition.
 
-Quantitative acceptance thresholds will be set after the team establishes the test setup, safety limits, and baseline hardware behavior.
+## Change Control
 
-## Explicitly Excluded From Version 1
-
-- Robotic arm integration, grasping, or object retrieval
-- Obstacle avoidance
-- SLAM or autonomous map construction
-- General-purpose object recognition beyond the four known targets
-- Unbounded, outdoor, or cluttered-environment navigation
-- Claims of optimized or learning-based search performance before validation
+If Eli and Toufic agree to add target approach to V1, update `README.md`, `docs/architecture.md`, `docs/requirements.md`, `docs/testing.md`, and related integration criteria before implementing it.

@@ -1,0 +1,56 @@
+# Python and virtual environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# C/C++ and embedded build outputs
+build/
+dist/
+.pio/
+*.o
+*.obj
+*.elf
+*.bin
+*.hex
+*.map
+
+# Editor and OS files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Local secrets and configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Logs and disposable test output
+*.log
+logs/
+tmp/
+temp/
+coverage/
+htmlcov/
+
+# Avoid committing large local capture datasets or model weights by accident
+data/raw/
+data/captures/
+models/checkpoints/
+*.pt
+*.pth
+*.onnx
+*.h5
+
+# Keep source, requirements, small test fixtures, CAD and docs tracked

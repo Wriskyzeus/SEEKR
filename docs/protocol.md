@@ -1,37 +1,46 @@
 # Raspberry Pi ↔ ESP32 Communication Protocol
 
-> **Initial draft — subject to change during development.** This document records candidate UART messages for early integration. It is not a final protocol specification.
+> **Planning draft, not implemented or finalized.** Physical link is either USB serial or direct 3.3 V-compatible UART, pending board and wiring selection. The serial byte stream needs an application-level protocol.
 
-## Purpose
+## Responsibilities
 
-UART communication will allow the Raspberry Pi to request low-level robot actions and allow the ESP32 to report sensor and controller state. Message framing, acknowledgement rules, timing, units, error handling, and exact field definitions must be finalized through implementation and test.
+The Raspberry Pi requests authorized robot motion, STOP, and startup/session synchronization. The ESP32 validates commands, enforces local boundary protection, runs both motor-speed loops, and returns readiness, telemetry, and faults.
 
-## Candidate Command Messages: Raspberry Pi to ESP32
+## Candidate Messages (Illustrative, Not a Final Grammar)
 
-| Message | Candidate format | Intended meaning |
+| Direction | Candidate message | Meaning |
 | --- | --- | --- |
-| Set velocity | `SET_VELOCITY,left,right` | Request left and right motor commands. Units and permissible range are TBD. |
-| Stop | `STOP` | Request that drive motion stop. |
-| Get status | `GET_STATUS` | Request current controller/sensor status. |
+| Pi → ESP32 | `SET_VELOCITY(v, omega)` | Request robot linear and angular velocity, in units/ranges to be defined. |
+| Pi → ESP32 | `SET_WHEEL_SPEEDS(left, right)` | Alternative wheel-speed request; decide which motion API V1 uses. |
+| Pi → ESP32 | `STOP` | Revoke motion authorization and request a safe stop. |
+| Pi ↔ ESP32 | `HELLO / READY / SESSION` | Establish mutually recognized readiness and a new control session. |
+| ESP32 → Pi | `STATUS(...)` | Report state, active motion inhibition, faults and readiness. |
+| ESP32 → Pi | `WHEELS(...)` | Report measured left/right speed and encoder information. |
+| ESP32 → Pi | `BOUNDARY(...)` | Report tape sensor states and boundary events. |
+| ESP32 → Pi | `ACK(...)` | Acknowledge selected commands at a defined acceptance level. |
 
-## Candidate Telemetry Messages: ESP32 to Raspberry Pi
+These symbols describe intent only; the actual textual or binary format will be selected later. **Never interpret `SET_VELOCITY,left,right` as both robot velocity and wheel velocity.** The interface needs one unambiguous definition.
 
-| Message | Candidate format | Intended meaning |
-| --- | --- | --- |
-| Encoders | `ENCODERS,left,right` | Report left and right encoder readings; count convention is TBD. |
-| Boundary | `BOUNDARY,left,center,right` | Report boundary-sensor readings or states; encoding is TBD. |
-| Status | `STATUS,state` | Report a controller state or diagnostic status; state vocabulary is TBD. |
+## Reliability and Safety Requirements
 
-## Initial Design Questions
+- Specify framing, buffering, parsing, field count/types, numerical limits, and invalid/unknown message handling.
+- Consider sequence numbers, acknowledgements for selected commands, checksums/CRC, and duplicate detection where justified.
+- Commands are accepted only within the currently synchronized, authorized session.
+- Motor movement requires **fresh valid motion authorization**; heartbeat alone does not authorize motion.
+- Lost fresh motion commands trigger an ESP32-side stop. Invalid messages do not refresh authorization.
+- ESP32 boundary inhibition overrides Pi movement requests. Recovery motion requires a separate, explicitly safe rule.
+- STOP and critical faults must not be undone by old commands or reconnection.
+- Reset or restart requires safe outputs and a new readiness/synchronization sequence.
+- Perception freshness is checked on the Pi independently of serial-link health.
 
-- Should each message be newline-delimited, length-prefixed, or use another framing method?
-- Which side owns command acknowledgement, retries, and timeouts?
-- What units, signs, limits, and update rates apply to velocity commands?
-- Are encoder values absolute counts, deltas, or both?
-- Are boundary fields raw values, normalized values, or thresholded booleans?
-- Which fault, watchdog, emergency-stop, and boot-state messages are required?
-- How should malformed messages, lost communication, and version mismatches be handled?
+## Decisions to Finalize During Implementation
 
-## Change Control
+- USB serial versus direct UART; wiring, common reference, logic compatibility.
+- One motion API: robot `(v, omega)` or wheel-speed targets; units, signs, limits.
+- Framing and schema; session identifier; command sequence/ACK semantics.
+- Integrity checking (CRC/checksum), retries and idempotence.
+- Command, telemetry, timeout, and control-loop intervals.
+- Startup handshake, STOP/fault and boundary recovery semantics.
+- Versioning and compatibility tests.
 
-Protocol changes should be recorded here before or alongside dependent firmware and Raspberry Pi software changes. Once hardware testing begins, the team should add an explicit message grammar, field ranges, timing expectations, error responses, and compatibility/versioning policy.
+Log important decisions and link test results as the protocol becomes executable.
