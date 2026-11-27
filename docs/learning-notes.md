@@ -14,23 +14,46 @@ SEEKR V1 is a two-wheel differential-drive visual-search robot with a passive ca
 
 ## Contents
 
-1. DC Motors
-2. Motor Drivers & H-Bridges
-3. PWM Speed Control
-4. Wheel Encoders
-5. ESP32 Encoder Reading
-6. Closed-Loop Motor Speed Control
-7. PID Motor Speed Control
-8. Differential-Drive Kinematics
-9. Wheel Odometry
-10. IMU Fundamentals (optional V1)
-11. Robot Power System
-12. Raspberry Pi Fundamentals
-13. Reliable Raspberry Pi–ESP32 Communication
-14. Black-Tape Boundary Sensing
-15. Camera and Perception Integration
-16. SEEKR V1 System Integration & Behavior Architecture
-17. Consolidated Implementation Checklist
+A quick reference organized by subsystem. Select a topic to jump directly to its notes.
+
+### I. Motors, Encoders & Control
+
+| Section | Topic |
+| :---: | --- |
+| 01 | [DC Motors](#1-dc-motors) |
+| 02 | [Motor Drivers & H-Bridges](#2-motor-drivers--h-bridges) |
+| 03 | [PWM Speed Control](#3-pwm-speed-control) |
+| 04 | [Wheel Encoders](#4-wheel-encoders) |
+| 05 | [ESP32 Encoder Reading](#5-esp32-encoder-reading) |
+| 06 | [Closed-Loop Motor Speed Control](#6-closed-loop-motor-speed-control) |
+| 07 | [PID Motor Speed Control](#7-pid-motor-speed-control) |
+
+### II. Robot Motion & Power
+
+| Section | Topic |
+| :---: | --- |
+| 08 | [Differential-Drive Kinematics](#8-differential-drive-kinematics) |
+| 09 | [Wheel Odometry](#9-wheel-odometry) |
+| 10 | [IMU Fundamentals](#10-imu-fundamentals) · *Optional for V1* |
+| 11 | [Robot Power System](#11-robot-power-system) |
+
+### III. Computing, Sensing & Communication
+
+| Section | Topic |
+| :---: | --- |
+| 12 | [Raspberry Pi Fundamentals](#12-raspberry-pi-fundamentals) |
+| 13 | [Reliable Raspberry Pi–ESP32 Communication](#13-reliable-raspberry-piesp32-communication) |
+| 14 | [Black-Tape Boundary Sensing](#14-black-tape-boundary-sensing) |
+| 15 | [Camera and Perception Integration](#15-camera-and-perception-integration) |
+
+### IV. Full-System Integration & Next Steps
+
+| Section | Topic |
+| :---: | --- |
+| 16 | [SEEKR V1 System Integration & Behavior Architecture](#16-seekr-v1-system-integration--behavior-architecture) |
+| 17 | [Consolidated Implementation Checklist](#17-consolidated-implementation-checklist) |
+
+---
 
 ## 1. DC Motors
 
