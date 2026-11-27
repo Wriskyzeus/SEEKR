@@ -994,3 +994,149 @@ Whether ALIGN and APPROACH are required for V1 remains a team design decision.
 - measuring detection latency and motion response
 - testing the complete perception-to-motion system
 
+## 16. SEEKR V1 System Integration & Behavior Architecture
+
+### Complete SEEKR V1 Architecture
+
+SEEKR uses two controllers with separate responsibilities:
+
+**Raspberry Pi 5:**
+- Web interface and target selection
+- Camera capture and perception
+- Search algorithm and high-level behavior
+- Mission state machine
+- Motion requests and telemetry processing
+
+**ESP32:**
+- Motor-driver control
+- Wheel-encoder acquisition
+- Closed-loop wheel-speed regulation
+- Boundary-sensor monitoring
+- Independent motion safety
+- Communication watchdog and fault reporting
+
+The robot uses two geared DC motors with encoders and one passive caster.
+
+A protected battery and voltage-regulation system provide suitable power to the electronics and motors.
+
+The Pi sends authorized movement requests to the ESP32. The ESP32 executes permitted movement and returns telemetry, readiness, and fault information.
+
+Hardware interfaces define electrical and physical connections. Software interfaces define exchanged messages and expected behavior.
+
+### Robot State Machine
+
+SEEKR's high-level mission logic runs on the Raspberry Pi.
+
+```mermaid
+flowchart TD
+    IDLE["IDLE"] -->|Start mission| SEARCH["SEARCH"]
+    SEARCH -->|Candidate detected| VERIFY["VERIFY"]
+    VERIFY -->|Rejected| SEARCH
+    VERIFY -->|Confirmed| SUCCESS{"Success condition met?"}
+    SUCCESS -->|Yes| FOUND["FOUND"]
+    SUCCESS -->|Alignment needed| ALIGN["ALIGN - Optional"]
+    ALIGN --> APPROACH["APPROACH - Optional"]
+    APPROACH -->|Success condition met| FOUND
+
+    SEARCH -->|Stop requested| STOPPED["STOPPED"]
+    VERIFY -->|Stop requested| STOPPED
+    ALIGN -->|Stop requested| STOPPED
+    APPROACH -->|Stop requested| STOPPED
+
+    SEARCH -->|Critical failure| FAULT["FAULT"]
+    VERIFY -->|Critical failure| FAULT
+    ALIGN -->|Critical failure| FAULT
+    APPROACH -->|Critical failure| FAULT
+```
+
+The diagram is conceptual. Actual transitions, including what happens after a successful VERIFY, depend on the final V1 success criterion.
+
+- **IDLE:** Wait for an authorized mission.
+- **SEARCH:** Explore the arena while looking for the selected object.
+- **VERIFY:** Confirm or reject a candidate detection.
+- **ALIGN:** Optional rotation toward the detected target.
+- **APPROACH:** Optional movement toward the target.
+- **FOUND:** Agreed success condition has been met; motors are stopped.
+- **STOPPED:** Normal mission interruption.
+- **FAULT:** Abnormal condition requiring defined handling.
+
+Each state needs explicit entry conditions, exit conditions, and permitted actions.
+
+The Pi owns the mission state machine, while the ESP32 independently enforces low-level motion restrictions.
+
+### Subsystem Interfaces and Team Responsibilities
+
+**Eli — High-Level Software**
+- Computer vision and perception
+- Machine learning
+- Search algorithms
+- High-level robot behavior
+
+**My Responsibilities — Hardware and Embedded Systems**
+- Electronics and power distribution
+- ESP32 firmware
+- Motor and encoder control
+- Differential-drive motion
+- Boundary sensing
+- Chassis and mechanical integration
+- Pi–ESP32 communication integration
+- Physical testing and calibration
+
+**Shared Responsibilities**
+- System architecture
+- Interface contracts
+- Safety coordination
+- Integration testing
+- Mission acceptance criteria
+
+Perception produces structured observations. High-level logic converts trustworthy observations into desired movement. The ESP32 validates motion requests, controls the motors, and reports physical feedback.
+
+Shared interfaces must define units, coordinate conventions, timestamps, readiness, command validity, and fault information.
+
+Both sides should support independent testing with simulated inputs.
+
+### Safety and Fault Coordination
+
+- Motor outputs must default to a safe state during startup and controller resets.
+- The ESP32 independently enforces boundary protection.
+- Missing fresh authorized motion commands must cause a safe stop.
+- The Pi must monitor perception freshness and detect stalled or unreliable observations.
+- Critical faults inhibit unsafe movement and prevent automatic restart.
+- Boundary recovery permits only explicitly safe motion.
+- Significant wheel-speed tracking errors require investigation and protective handling.
+- Reset or reconnection requires synchronization before new movement is authorized.
+- Physical containment must be verified using actual stopping distances and full chassis dimensions.
+
+A functioning serial connection does not guarantee functioning perception, motors, or sensors.
+
+### Integration and Testing Strategy
+
+SEEKR will be integrated progressively:
+
+1. Inspect power connections and verify safe initial power-up.
+2. Test one DC motor and its encoder.
+3. Test both motors independently and together.
+4. Implement and tune closed-loop wheel-speed control.
+5. Validate differential-drive movement and basic odometry.
+6. Calibrate boundary sensors.
+7. Test boundary stopping, containment, and recovery.
+8. Test Pi–ESP32 commands, telemetry, timeouts, and resets.
+9. Test simulated high-level movement requests.
+10. Test the camera and perception subsystem independently.
+11. Integrate Eli's high-level software with the embedded system.
+12. Conduct repeated autonomous-search trials.
+
+Testing should record configurations, measured results, failures, and relevant logs.
+
+### Remaining Decisions Before Implementation
+
+- Agree with Eli on the final V1 FOUND criterion.
+- Decide whether ALIGN and APPROACH are mandatory or optional.
+- Define the perception and motion-control interface contracts.
+- Agree on fault handling, readiness, and recovery behavior.
+- Select actual motors, encoders, wheels, driver, battery, regulators, camera, and boundary sensors.
+- Finalize an initial chassis layout and sensor geometry.
+- Verify electrical compatibility and establish a power budget.
+- Prepare wiring diagrams and an incremental test plan.
+
+**First physical milestone:** Safely power and control one geared DC motor while reading its encoder with the ESP32.
