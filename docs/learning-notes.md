@@ -1,6 +1,36 @@
-# Robotics & Embedded Systems Learning Notes
+# SEEKR — Robotics & Embedded Systems Engineering Notes
 
-These notes document the concepts I learn while building the autonomous mapping robot.
+> **Status:** Pre-build learning completed (Steps 1–19). These are consolidated engineering reference notes, not proof that hardware has been purchased or tested.
+
+## Project Context and How to Use These Notes
+
+SEEKR V1 is a two-wheel differential-drive visual-search robot with a passive caster. In a flat wooden-floor arena enclosed by black tape, it autonomously searches for one of four user-selected known objects, **visually verifies the selected target**, safely stops, and reports **FOUND**. ALIGN/APPROACH and object retrieval are future extensions, **not V1 requirements**. This working V1 scope is documented in [requirements.md](requirements.md).
+
+- **Raspberry Pi 5:** Web interface, camera/perception, search decisions, mission state, and telemetry processing.
+- **ESP32:** Encoder measurement, motor feedback control, boundary sensing, local safety, and communication.
+- **Ownership:** Toufic leads electronics, embedded firmware, chassis and physical testing; Eli leads perception/ML and high-level search. Integration and interface contracts are shared.
+- **Note numbering:** Sections 1–16 are *topic/reference sections*, not the original sequential learning-step numbers.
+- **Learning versus implementation:** Concepts below have been studied, but component selection, firmware, calibration, and physical validation are still ahead. See the consolidated implementation checklist at the end.
+
+## Contents
+
+1. DC Motors
+2. Motor Drivers & H-Bridges
+3. PWM Speed Control
+4. Wheel Encoders
+5. ESP32 Encoder Reading
+6. Closed-Loop Motor Speed Control
+7. PID Motor Speed Control
+8. Differential-Drive Kinematics
+9. Wheel Odometry
+10. IMU Fundamentals (optional V1)
+11. Robot Power System
+12. Raspberry Pi Fundamentals
+13. Reliable Raspberry Pi–ESP32 Communication
+14. Black-Tape Boundary Sensing
+15. Camera and Perception Integration
+16. SEEKR V1 System Integration & Behavior Architecture
+17. Consolidated Implementation Checklist
 
 ## 1. DC Motors
 
@@ -41,7 +71,7 @@ Important relationships:
 ### Why does our robot need it?
 SEEKR needs an encoder on each drive motor so the left and right wheel movement can be measured independently. Equal PWM commands do not guarantee equal wheel speeds, so encoder feedback allows the robot to detect and later correct these differences.
 
-Encoders will support accurate straight-line driving, controlled turning, closed-loop speed control, and wheel odometry.
+Encoders provide direct feedback for wheel-speed control and approximate wheel motion. They support more repeatable straight driving and turning, but cannot eliminate slip or trajectory error.
 
 ## 5. ESP32 Encoder Reading
 
@@ -55,7 +85,7 @@ The ESP32 can periodically read the accumulated encoder counts and use the chang
 ### Why does our robot need this?
 SEEKR needs reliable and independent measurements of its left and right wheel motion. Since equal PWM commands do not guarantee equal wheel speeds, encoder measurements provide the feedback needed for accurate straight-line driving and controlled turning.
 
-This also provides the foundation for closed-loop motor control, PID control, and wheel odometry.
+See Sections 6–9 for closed-loop control, PI/PID, kinematics, and optional odometry built on these measurements.
 
 ## 6. Closed-Loop Motor Speed Control
 
@@ -66,18 +96,10 @@ The ESP32 repeatedly performs:
 
 Measured RPM → Calculate error → Adjust PWM → Repeat
 
-The speed error is:
+The control loop compares the desired wheel RPM against the encoder-derived RPM and adjusts motor drive accordingly. The error equation and PI/PID terms are developed in Section 7.
 
-e = RPM_target - RPM_measured
-
-A simple proportional controller can adjust PWM based on this error.
-
-### Why does our robot need it?
-SEEKR uses two independently driven DC motors. Closed-loop control allows the ESP32 to compensate for differences caused by load, friction, battery voltage, and motor characteristics.
-
-Independent feedback loops for the left and right wheels improve straight-line driving, controlled turning, and movement repeatability.
-
-Wheel slip and inaccurate wheel dimensions can still affect the robot's actual trajectory even if wheel-speed control is accurate.
+### Why does SEEKR need it?
+Each drive wheel needs an independent speed-feedback loop, since equal PWM does not imply equal actual speed. This improves motion repeatability under changing loads and supply conditions. Accurate wheel RPM alone cannot prevent slip or guarantee a perfectly accurate trajectory; see Sections 7–9.
 
 ## 7. PID Motor Speed Control
 
@@ -124,25 +146,8 @@ The ESP32 repeatedly:
 
 The PWM output must also be limited to the valid range supported by the motor-control system.
 
-### Why does our robot need it?
-SEEKR uses two independently driven DC motors. Even if both motors receive the same PWM command, they may not rotate at exactly the same speed because of differences in:
-
-- motor characteristics
-- friction
-- mechanical load
-- battery voltage
-- wheel contact with the floor
-
-SEEKR can use a separate PI/PID controller for each wheel so that each motor follows its requested wheel-speed setpoint more accurately.
-
-This improves:
-
-- straight-line driving
-- repeatable turning
-- wheel-speed consistency
-- resistance to changing loads
-
-For SEEKR, **PI control may be sufficient** if the derivative term does not provide a useful improvement, since derivative control can be sensitive to noisy encoder measurements.
+### Why does SEEKR need it?
+The ESP32 can run independent PI/PID wheel-speed controllers so commanded wheel speeds are followed despite motor differences, friction, varying load, and battery changes. This improves straight driving and repeatable turning, but not absolute positioning. **PI may be sufficient for V1**; whether a D term is beneficial must be determined experimentally because encoder-derived RPM can be noisy.
 
 ### Important PID behavior
 
@@ -322,16 +327,8 @@ where:
 
 Odometry starts from a known or assumed pose and repeatedly updates that estimate as the wheels move.
 
-### Why does SEEKR need it?
-Wheel odometry allows SEEKR to estimate how far it has moved and how its orientation has changed inside the arena.
-
-It can help SEEKR:
-
-- estimate relative position
-- estimate heading
-- track approximately where it has already travelled
-- support future navigation and search logic
-- provide movement information to the Raspberry Pi
+### Why might SEEKR use it?
+Wheel odometry estimates relative travel and heading from encoder counts and can provide approximate pose telemetry to the Raspberry Pi. It may support search coverage and debugging, but **continuous (x, y, θ) tracking is not a mandatory V1 feature**; wheel-speed feedback is the immediate requirement.
 
 ### Important equations and concepts
 
@@ -416,13 +413,6 @@ Wheel odometry uses measured wheel movement over time to estimate the robot's ch
 
 These errors accumulate because every new pose estimate depends on the previous estimate.
 
-### What I still need to understand
-- implementing odometry calculations in code
-- calibrating wheel radius and effective track width
-- testing straight-line and turning accuracy
-- sending pose estimates to the Raspberry Pi
-- IMUs and sensor fusion
-
 ## 10. IMU Fundamentals
 
 ### What is an IMU?
@@ -477,13 +467,6 @@ Basic sensor fusion can combine encoder and gyro measurements to improve heading
 - calibration error
 - sampling-time error
 
-### What I still need to understand
-- practical IMU wiring and calibration
-- reading IMU measurements with the ESP32
-- comparing gyro and encoder heading estimates
-- sensor fusion if SEEKR later requires it
-
-
 ## 11. Robot Power System
 
 ### What is SEEKR's power system?
@@ -502,7 +485,7 @@ $$
 P = VI
 $$
 
-Energy is:
+For constant power over a duration, energy is:
 
 $$
 E = Pt
@@ -579,15 +562,6 @@ flowchart TD
 
 The final architecture will depend on the actual battery voltage and the voltage/current requirements of the selected components.
 
-### What I still need to understand
-- selecting SEEKR's actual motors and determining running and stall current
-- selecting the motor driver
-- selecting the battery
-- sizing voltage regulators
-- selecting fuses
-- selecting appropriate wire and connectors
-- assembling and testing the real power system safely
-
 ## 12. Raspberry Pi Fundamentals
 
 ### What is the Raspberry Pi's role in SEEKR?
@@ -644,43 +618,13 @@ The ESP32 is therefore better suited for the timing-sensitive control loops that
 - **systemd:** Linux service manager that can automatically start SEEKR software when the Pi boots.
 - **Watchdog / timeout:** A safety mechanism that detects lost communication or stalled software and can force the robot into a safe state.
 
-### Communication Concepts Introduced
+### Pi–ESP32 Integration Boundary
 
-During this step, the basic Raspberry Pi–ESP32 communication model was also introduced.
+The Raspberry Pi runs application-level decisions; the ESP32 runs time-sensitive control and safety. The Pi can use **USB serial or direct UART**, with the exact physical connection selected during implementation. Communication basics and reliability are gathered together in Section 13 to avoid two competing definitions.
 
-- **Serial communication:** SEEKR's Raspberry Pi and ESP32 exchange a stream of bytes using either USB serial or direct UART, depending on the final hardware configuration.
-- **TX and RX:** TX transmits data and RX receives data.
-- **Baud rate:** Defines the communication rate. Both devices must use compatible communication settings.
-- **8N1:** A common UART configuration using 8 data bits, no parity bit, and 1 stop bit.
-- **Common ground:** Direct UART communication requires the two controllers to share a voltage reference unless isolation is used.
-- **Byte stream:** Serial communication does not automatically provide complete application-level messages. The software must determine where messages begin and end.
-- **Message framing:** A rule used to separate individual messages. A simple example is terminating each message with a newline character.
-- **Commands:** Messages from the Raspberry Pi requesting robot actions, such as movement or stopping.
-- **Telemetry:** Information sent from the ESP32 to the Raspberry Pi, such as wheel speeds, encoder information, odometry, boundary states, and faults.
-- **Different update rates:** Motor-control loops run much faster than high-level commands and telemetry. These tasks do not need to operate at the same frequency.
-- **Heartbeat:** A periodic message indicating that communication is still active.
-- **Communication timeout:** If valid control communication disappears for too long, the ESP32 should place the robot into a safe stopped state.
-- **Startup handshake:** The Raspberry Pi and ESP32 should confirm readiness before normal autonomous operation begins.
+### High-Level Behavior Ownership
 
-These concepts establish the basic communication architecture. Reliable parsing, acknowledgements, corruption detection, recovery, reconnection, and protocol design are covered in Step 16.
-
-### High-Level Robot State Machine
-
-SEEKR's Raspberry Pi will maintain states similar to:
-
-```mermaid
-flowchart LR
-    IDLE["IDLE"] --> SEARCH["SEARCH"]
-    SEARCH --> VERIFY["VERIFY / ALIGN"]
-    VERIFY --> APPROACH["APPROACH"]
-    APPROACH --> FOUND["FOUND"]
-
-    SEARCH --> FAULT["FAULT / STOP"]
-    VERIFY --> FAULT
-    APPROACH --> FAULT
-```
-
-The exact implementation may change during development.
+The Pi owns mission transitions, while the ESP32 enforces local motor safety. The **single authoritative V1 state diagram** is in Section 16; it ends at verified FOUND, not APPROACH.
 
 ### SEEKR's High-Level Data Flow
 
@@ -693,7 +637,6 @@ The exact implementation may change during development.
 7. The ESP32 controls the motors and monitors encoders and boundary sensors.
 8. The ESP32 sends telemetry and safety events back to the Raspberry Pi.
 9. The Raspberry Pi updates the robot state and web interface.
-
 
 ### Startup Sequence
 
@@ -722,18 +665,6 @@ flowchart TD
 
 The ESP32 must keep the motors stopped until both controllers complete their readiness checks. SEEKR only enters the IDLE state when the required systems are ready.
 
-
-### What I still need to understand
-
-- setting up the Raspberry Pi operating system
-- connecting to the Pi using SSH
-- working with the camera on the Raspberry Pi
-- designing and implementing a reliable Pi–ESP32 communication protocol
-- integrating perception and search software
-- implementing the high-level state machine
-- configuring automatic startup
-- logging and fault recovery
-
 ## 13. Reliable Raspberry Pi–ESP32 Communication
 
 ### How do the Raspberry Pi and ESP32 communicate?
@@ -749,7 +680,25 @@ Serial communication transfers bytes, not complete commands automatically.
 
 A protocol defines message boundaries, data formats, command meanings, validation rules, and failure behavior so both controllers can communicate reliably and safely.
 
-### Important Concepts
+### Serial Foundations (Learned During Raspberry Pi Fundamentals)
+
+- **Serial communication:** SEEKR's Raspberry Pi and ESP32 exchange a stream of bytes using either USB serial or direct UART, depending on the final hardware configuration.
+- **TX and RX:** TX transmits data and RX receives data.
+- **Baud rate:** Defines the communication rate. Both devices must use compatible communication settings.
+- **8N1:** A common UART configuration using 8 data bits, no parity bit, and 1 stop bit.
+- **Common ground:** Direct UART communication requires the two controllers to share a voltage reference unless isolation is used.
+- **Byte stream:** Serial communication does not automatically provide complete application-level messages. The software must determine where messages begin and end.
+- **Message framing:** A rule used to separate individual messages. A simple example is terminating each message with a newline character.
+- **Commands:** Messages from the Raspberry Pi requesting robot actions, such as movement or stopping.
+- **Telemetry:** Information sent from the ESP32 to the Raspberry Pi, such as wheel speeds, encoder information, odometry, boundary states, and faults.
+- **Different update rates:** Motor-control loops run much faster than high-level commands and telemetry. These tasks do not need to operate at the same frequency.
+- **Heartbeat:** A periodic message indicating that communication is still active.
+- **Communication timeout:** If valid control communication disappears for too long, the ESP32 should place the robot into a safe stopped state.
+- **Startup handshake:** The Raspberry Pi and ESP32 should confirm readiness before normal autonomous operation begins.
+
+These concepts establish the basic communication architecture. Reliable parsing, acknowledgements, corruption detection, recovery, reconnection, and protocol design are covered in Step 16.
+
+### Reliability Concepts
 
 - **Framing:** Defines where a message starts and ends.
 - **Buffering:** Temporarily stores incoming bytes until a complete message is received.
@@ -794,15 +743,6 @@ The ESP32 must enforce safety independently of the Raspberry Pi.
 - Keep motor-driver outputs safe during startup and controller resets.
 - Require synchronization after faults, resets, and reconnection.
 - Never automatically resume previous motion after reconnection.
-
-### What I Still Need to Understand
-
-- Selecting USB serial or direct UART for the final hardware.
-- Designing the actual message formats in `protocol.md`.
-- Choosing sequence-number, acknowledgement, and CRC rules.
-- Establishing appropriate communication rates and timeouts.
-- Implementing message parsing and validation.
-- Testing communication loss, resets, reconnection, and safe motor stopping.
 
 ## 14. Black-Tape Boundary Sensing
 
@@ -875,17 +815,6 @@ Reversing is not automatically safe. If the safe recovery direction cannot be es
 Critical sensor faults or communication failures must prevent unsafe autonomous movement.
 
 **Detecting the tape does not automatically guarantee that SEEKR remains inside the arena.** Physical containment must be verified using real stopping-distance and sensor-coverage tests.
-
-### What I Still Need to Understand
-
-- selecting the final chassis dimensions and mechanical footprint
-- determining tape width and containment requirements
-- selecting suitable IR reflectance sensors
-- measuring actual sensor coverage
-- calibrating floor/tape detection thresholds
-- measuring detection latency and stopping distance
-- implementing boundary inhibition and safe recovery
-- validating containment through physical testing
 
 ## 15. Camera and Perception Integration
 
@@ -980,19 +909,7 @@ The baseline SEEKR V1 objective is to **locate and visually confirm the user-sel
 - **ALIGN:** Optionally rotates the robot to center the target.
 - **APPROACH:** Optionally moves toward the target, requiring additional distance-estimation and safety considerations.
 
-Whether ALIGN and APPROACH are required for V1 remains a team design decision.
-
-### What I Still Need to Understand
-
-- confirming the final V1 FOUND condition with Eli
-- deciding whether ALIGN and APPROACH are required
-- defining the perception-to-behavior interface
-- agreeing on coordinate conventions and timestamp handling
-- selecting confidence and observation-freshness rules
-- defining transitions for detection, target loss, and faults
-- selecting and mounting the actual camera
-- measuring detection latency and motion response
-- testing the complete perception-to-motion system
+**Current working V1 scope:** VERIFY followed by a safe stop and FOUND. ALIGN and APPROACH are **deferred**, unless Toufic and Eli explicitly change the agreed requirements before implementation.
 
 ## 16. SEEKR V1 System Integration & Behavior Architecture
 
@@ -1029,40 +946,28 @@ SEEKR's high-level mission logic runs on the Raspberry Pi.
 
 ```mermaid
 flowchart TD
-    IDLE["IDLE"] -->|Start mission| SEARCH["SEARCH"]
-    SEARCH -->|Candidate detected| VERIFY["VERIFY"]
-    VERIFY -->|Rejected| SEARCH
-    VERIFY -->|Confirmed| SUCCESS{"Success condition met?"}
-    SUCCESS -->|Yes| FOUND["FOUND"]
-    SUCCESS -->|Alignment needed| ALIGN["ALIGN - Optional"]
-    ALIGN --> APPROACH["APPROACH - Optional"]
-    APPROACH -->|Success condition met| FOUND
-
-    SEARCH -->|Stop requested| STOPPED["STOPPED"]
-    VERIFY -->|Stop requested| STOPPED
-    ALIGN -->|Stop requested| STOPPED
-    APPROACH -->|Stop requested| STOPPED
-
-    SEARCH -->|Critical failure| FAULT["FAULT"]
-    VERIFY -->|Critical failure| FAULT
-    ALIGN -->|Critical failure| FAULT
-    APPROACH -->|Critical failure| FAULT
+    IDLE["IDLE / Ready"] -->|"Authorized start"| SEARCH["SEARCH"]
+    SEARCH -->|"Selected-target candidate"| VERIFY["VERIFY"]
+    VERIFY -->|"Rejected / insufficient evidence"| SEARCH
+    VERIFY -->|"Confirmed selected target + safe stop"| FOUND["FOUND"]
+    SEARCH -->|"User stop"| STOPPED["STOPPED"]
+    VERIFY -->|"User stop"| STOPPED
+    SEARCH -->|"Critical fault"| FAULT["FAULT"]
+    VERIFY -->|"Critical fault"| FAULT
+    STOPPED -->|"Reset + ready"| IDLE
+    FAULT -->|"Cleared + reauthorized"| IDLE
 ```
 
-The diagram is conceptual. Actual transitions, including what happens after a successful VERIFY, depend on the final V1 success criterion.
+- **IDLE:** Await a new authorized mission with motors stopped.
+- **SEARCH:** Autonomously explore the arena and look for the selected object.
+- **VERIFY:** Confirm or reject a selected-target candidate using fresh trustworthy observations.
+- **FOUND:** Verification succeeded, the robot is safely stopped, and success can be reported.
+- **STOPPED:** Normal mission interruption, with motor movement inhibited.
+- **FAULT:** Abnormal condition requiring recovery/clearance and fresh authorization.
 
-- **IDLE:** Wait for an authorized mission.
-- **SEARCH:** Explore the arena while looking for the selected object.
-- **VERIFY:** Confirm or reject a candidate detection.
-- **ALIGN:** Optional rotation toward the detected target.
-- **APPROACH:** Optional movement toward the target.
-- **FOUND:** Agreed success condition has been met; motors are stopped.
-- **STOPPED:** Normal mission interruption.
-- **FAULT:** Abnormal condition requiring defined handling.
+**ALIGN and APPROACH are not V1 states.** They are planned optional future-version extensions; neither is needed to demonstrate visual search. Pi mission transitions do not override ESP32-side boundary or communication safety.
 
-Each state needs explicit entry conditions, exit conditions, and permitted actions.
-
-The Pi owns the mission state machine, while the ESP32 independently enforces low-level motion restrictions.
+Each state still requires implementation-level entry conditions, exit conditions, and permitted actions.
 
 ### Subsystem Interfaces and Team Responsibilities
 
@@ -1128,15 +1033,53 @@ SEEKR will be integrated progressively:
 
 Testing should record configurations, measured results, failures, and relevant logs.
 
-### Remaining Decisions Before Implementation
+### Transition to Implementation
 
-- Agree with Eli on the final V1 FOUND criterion.
-- Decide whether ALIGN and APPROACH are mandatory or optional.
-- Define the perception and motion-control interface contracts.
-- Agree on fault handling, readiness, and recovery behavior.
-- Select actual motors, encoders, wheels, driver, battery, regulators, camera, and boundary sensors.
-- Finalize an initial chassis layout and sensor geometry.
-- Verify electrical compatibility and establish a power budget.
-- Prepare wiring diagrams and an incremental test plan.
+The theory block is complete; no physical subsystem is claimed as built or validated. The first physical milestone is **safe bench power, one geared DC motor, and encoder acquisition with the ESP32**. The next section collects the remaining decisions and tests into a single checklist rather than repeating "still need to learn" after each topic.
 
-**First physical milestone:** Safely power and control one geared DC motor while reading its encoder with the ESP32.
+## 17. Consolidated Implementation Checklist
+
+> This checklist is **work still to build, decide, calibrate, or test**, not theory the team has yet to study. Exact models, acceptance thresholds, firmware, and system behavior will be refined from measured results. Ownership and current V1 scope remain governed by [requirements.md](requirements.md).
+
+### A. Before Hardware Procurement (Shared, Toufic Leads Hardware)
+
+- [ ] Confirm visual verification → safe stop → FOUND as the working V1 success criterion with Eli; only change ALIGN/APPROACH scope explicitly.
+- [ ] Review compatible motor ratings, wheel geometry, encoder signal levels/count conventions, dual-channel driver continuous/peak currents, and safe braking.
+- [ ] Select a protected battery/bench supply, motor and logic rails, appropriately rated regulators, fuses, switches, connectors, and wiring; complete a power budget.
+- [ ] Plan mechanical footprint, track width, camera location, tape width, boundary-sensor placement and expected stopping margin.
+- [ ] Specify the first bench wiring diagram and safe stop procedure before energizing motors.
+- [ ] Track confirmed components and datasheets in [hardware.md](hardware.md).
+
+### B. Embedded System and Mechanical Bring-up (Toufic)
+
+- [ ] Wire and test one motor and encoder with a protected, current-limited bench supply.
+- [ ] Verify encoder resolution/count direction, voltage compatibility, reliable ESP32 acquisition, and wheel speed measurements.
+- [ ] Add the second drive motor and tune independent PI/PID speed regulation; verify PWM saturation, braking, and stop behavior.
+- [ ] Build a stable differential-drive chassis; measure wheel radii/track width and characterize straight motion/turning.
+- [ ] Implement and optionally report wheel odometry if it adds value for V1 search and debugging.
+- [ ] Select and calibrate boundary sensors against the *actual* floor/tape; confirm full chassis coverage, latency, stopping distance, and safe recovery.
+- [ ] Check power stability and motor-safe startup/reset outputs.
+
+### C. Pi, Communication, and Interfaces (Shared)
+
+- [ ] Configure Raspberry Pi OS, SSH, camera capture, application startup, and logging.
+- [ ] Choose USB serial or direct UART, define unambiguous velocity units/signs, frame schema, sequence/session rules, integrity checks, and timeouts in [protocol.md](protocol.md).
+- [ ] Implement and test Pi–ESP32 parsing, telemetry, STOP, authorization, resets, command freshness, and reconnection without unsafe auto-resume.
+- [ ] Agree with Eli on perception outputs, image coordinate conventions, capture timestamps/frame IDs, NO_DETECTION vs ERROR, and observation-age rules.
+- [ ] Integrate Eli's search and VERIFY logic with a simulated or bench-tested motion interface. Record shared decisions in [integration.md](integration.md).
+
+### D. Full V1 Validation (Shared)
+
+- [ ] Define and test a real, repeatable verification rule for the selected one of four objects.
+- [ ] Distinguish ordinary STOPPED from abnormal FAULT, and verify startup/readiness/fault handling.
+- [ ] Test bad sensor signals, stale frames, dropped serial commands, motor/encoder faults, and boundary sensor failures.
+- [ ] Run low-speed supervised trials, validate physical containment, and then repeated full mission trials.
+- [ ] Measure verified search success, false FOUND, time to detection, containment violations, braking behavior, and relevant fault/telemetry logs; set quantitative acceptance criteria from real tests.
+
+### E. Deferred / Future Versions (Not V1 Dependencies)
+
+- Optional IMU installation, gyro calibration, and encoder/IMU heading fusion.
+- Continuous localization beyond useful encoder-based estimates, SLAM, LiDAR, obstacle avoidance, mapping, or ROS 2.
+- Camera-based ALIGN, APPROACH, near-target stopping, and later gripper/object retrieval.
+
+**Completion boundary:** The reference concepts in Sections 1–16 have been learned. The checklist above is the remaining engineering work for V1; do not interpret unchecked items as an invitation to restart the theory curriculum.
